@@ -220,7 +220,7 @@ func (this *Session) Prepare_request(request *models.Request) (*models.PrepareRe
 
 func (this *Session) Request(method, rawurl string, request *url.Request) (*models.Response, error) {
 	if request == nil {
-		request = &url.Request{}
+		request = url.NewRequest()
 	}
 	req := &models.Request{
 		Method:  strings.ToUpper(method),
@@ -359,7 +359,11 @@ func (this *Session) Send(preq *models.PrepareRequest, req *url.Request) (*model
 		this.client.CheckRedirect = disableRedirect
 	}
 	u, _ := url2.Parse(preq.Url)
-	(*preq.Headers)[http.HeaderOrderKey] = (*req.Headers)[http.HeaderOrderKey]
+	if req.Headers != nil{
+		if (*req.Headers)[http.HeaderOrderKey] != nil {
+			(*preq.Headers)[http.HeaderOrderKey] = (*req.Headers)[http.HeaderOrderKey]
+		}
+	}
 	this.request = &http.Request{
 		Method: preq.Method,
 		URL:    u,

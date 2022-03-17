@@ -49,7 +49,7 @@ import (
 然后，尝试获取某个网页。本例子中，我们来获取 Github 的公共时间线：
 
 ```go
-r, err := requests.Get('https://api.github.com/events', nil)
+r, err := requests.Get("https://api.github.com/events", nil)
 ```
 
 现在，我们有一个名为 `r` 的 [`Response`](https://docs.python-requests.org/zh_CN/latest/api.html#requests.Response) 对象。我们可以从这个对象中获取所有我们想要的信息。
@@ -68,9 +68,9 @@ r, err := requests.Post("http://httpbin.org/post", &url.Request{Data: data})
 data := url.NewData()
 data.Set("key","value")
 r, err := requests.Post("http://httpbin.org/post", &url.Request{Data: data})
-r := requests.Delete('http://httpbin.org/delete')
-r := requests.Head('http://httpbin.org/get')
-r := requests.Options('http://httpbin.org/get')
+r := requests.Delete("http://httpbin.org/delete")
+r := requests.Head("http://httpbin.org/get")
+r := requests.Options("http://httpbin.org/get")
 ```
 
 都很不错吧，但这也仅是 requests 的冰山一角呢。
@@ -86,6 +86,9 @@ params := url.NewParams()
 params.Set("key1","value1")
 params.Set("key2","value2")
 r, err := requests.Get("http://httpbin.org/get",&url.Request{Params: params})
+if err != nil {
+	fmt.Println(err)
+}
 ```
 
 通过打印输出该 URL，你能看到 URL 已被正确编码：
@@ -103,7 +106,11 @@ params.Set("key1","value1")
 params.Add("key1","value2")
 params.Set("key2","value2")
 r, err := requests.Get("http://httpbin.org/get",&url.Request{Params: params})
+if err != nil {
+	fmt.Println(err)
+}
 fmt.Println(r.Url)
+
 http://httpbin.org/post?key1=value1&key1=value2&key2=value2
 ```
 
@@ -116,14 +123,20 @@ http://httpbin.org/post?key1=value1&key1=value2&key2=value2
 ```go
 package main
 
-import "github.com/wangluozhe/requests"
+import (
+	"fmt"
+	"github.com/wangluozhe/requests"
+)
 
-func main(){
-    r, err := requests.Get('https://api.github.com/events', nil)
-    fmt.Println(r.Text)
+func main() {
+	r, err := requests.Get("https://api.github.com/events", nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(r.Text)
 }
 
-[{"repository":{"open_issues":0,"url":"https://github.com/...
+[{"repository":{"open_issues":0, "url":"https://github.com/...
 ```
 
 requests 会自动解码来自服务器的内容。大多数 unicode 字符集都能被无缝地解码。
@@ -168,10 +181,16 @@ Requests 中也有一个内置的 JSON 解码器，助你处理 JSON 数据：
 ```go
 package main
 
-import "github.com/wangluozhe/requests"
+import (
+	"fmt"
+	"github.com/wangluozhe/requests"
+)
 
 func main(){
-    r, err := requests.Get('https://api.github.com/events', nil)
+    r, err := requests.Get("https://api.github.com/events", nil)
+    if err != nil{
+    	fmt.Println(err)
+    }
     json, err := r.Json()
     fmt.Println(json, err)
 }
@@ -194,7 +213,7 @@ r, err := requests.Get("http://www.baidu.com", nil)
 if err != nil {
     fmt.Println(err)
 }
-fmt.Println(resp.Body)
+fmt.Println(r.Body)
 
 // 返回的是io.ReadCloser类型
 ```
@@ -202,7 +221,7 @@ fmt.Println(resp.Body)
 但一般情况下，你应该以下面的模式将文本流保存到文件：
 
 ```go
-f,_ := os.Create("baidu.txt")
+f, _ := os.Create("baidu.txt")
 io.Copy(f,resp.Body)
 ```
 
@@ -221,13 +240,12 @@ headers.Set("user-agent", "my-app/0.0.1")
 req := url.NewRequest()
 req.Headers = headers
 
-r := requests.Get(url, req)
+r, err := requests.Get(url, req)
 ```
 
 注意: 定制 header 的优先级低于某些特定的信息源，例如：
 
-* `Content-Length`请求头不能随便设置，可能会有错误发生。
-
+- `Content-Length`请求头不能随便设置，可能会有错误发生。
 - 如果被重定向到别的主机，授权 header 就会被删除。
 - 代理授权 header 会被 URL 中提供的代理身份覆盖掉。
 - 在我们能判断内容长度的情况下，header 的 Content-Length 会被改写。
@@ -272,15 +290,15 @@ func main(){
         "host",
         "accept",
     }
-}
-req.Headers = headers
-r, err := requests.Get("https://httpbin.org/get", req)
-if err != nil {
-	fmt.Println(err)
-}
-fmt.Println("text:", r.Text)
+    req.Headers = headers
+    r, err := requests.Get("https://httpbin.org/get", req)
+    if err != nil {
+        fmt.Println(err)
+    }
+    fmt.Println("text:", r.Text)
 
-// 最好用fiddler抓包工具查看一下
+    // 最好用fiddler抓包工具查看一下
+}
 ```
 
 
@@ -435,7 +453,7 @@ True
 如果发送了一个错误请求(一个 4XX 客户端错误，或者 5XX 服务器错误响应)，我们可以通过 `Response.RaiseForStatus()` 来抛出异常：
 
 ```go
-r, err := requests.Get('http://httpbin.org/status/404', nil)
+r, err := requests.Get("http://httpbin.org/status/404", nil)
 fmt.Println(r.StatusCode)
 
 404
@@ -475,7 +493,7 @@ map[Access-Control-Allow-Credentials:[true] Access-Control-Allow-Origin:[*] Conn
 fmt.Println(r.Headers["Content-Type"][0])
 application/json
 
-fmt.Println(r.Headers.Get('content-type'))
+fmt.Println(r.Headers.Get("content-type"))
 application/json
 ```
 
@@ -502,7 +520,7 @@ fmt.Println(r.Cookies)
 
 要想发送你的cookies到服务器，可以使用 `cookies` 参数：
 
-```
+```go
 req := url.NewRequest()
 cookies,_ := cookiejar.New(nil)
 urls, _ := url.Parse("http://httpbin.org/cookies")
@@ -533,7 +551,7 @@ fmt.Println(r.Text)
 
 例如，Github 将所有的 HTTP 请求重定向到 HTTPS：
 
-```
+```go
 r, err := requests.Get("http://github.com", nil)
 
 fmt.Println(r.Url)
@@ -551,10 +569,13 @@ fmt.Println(r.History)
 
 如果你使用的是GET、OPTIONS、POST、PUT、PATCH 或者 DELETE，那么你可以通过 `allow_redirects` 参数禁用重定向处理：
 
-```
+```go
 req := url.NewRequest()
 req.AllowRedirects = false
-r, err := requests.Get('http://github.com', req)
+r, err := requests.Get("http://github.com", req)
+if err != nil {
+    fmt.Println(err)
+}
 fmt.Println(r.StatusCode)
 
 301
@@ -569,7 +590,10 @@ fmt.Println(r.History)
 ```go
 req := url.NewRequest()
 req.AllowRedirects = true
-r, err := requests.Get('http://github.com', req)
+r, err := requests.Get("http://github.com", req)
+if err != nil {
+	fmt.Println(err)
+}
 fmt.Println(r.Url)
 
 https://github.com/
@@ -589,6 +613,9 @@ fmt.Println(r.History)
 req := url2.NewRequest()
 req.Timeout = 1 * time.Millisecond
 r, err := requests.Get("http://github.com",req)
+if err != nil {
+    fmt.Println(err)
+}
 
 panic: runtime error: invalid memory address or nil pointer dereference
 [signal 0xc0000005 code=0x0 addr=0x0 pc=0x253460]
@@ -641,7 +668,7 @@ func main() {
 
 你也可以指定一个本地证书用作客户端证书，可以是一个包含两个文件路径的数组（cert，key）或一个包含三个文件路径的数组（cert，key，根证书）：
 
-```
+```go
 req := url.NewRequest()
 req.Cert = []string{"cert","key"}
 // req.Cert = []string{"cert","key","rootca"}
@@ -653,7 +680,7 @@ if err != nil{
 
 或者保持在会话中：
 
-```
+```go
 session := requests.NewSession()
 session.Cert = []string{"cert","key"}
 ```
