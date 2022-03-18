@@ -70,7 +70,7 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 			return merged_setting
 		}
 		for key, _ := range *requestd_setting {
-			merged_setting.Set(key, requestd_setting.Get(key))
+			merged_setting.Set(key,(*requestd_setting)[key][0])
 		}
 		return merged_setting
 	case []string:

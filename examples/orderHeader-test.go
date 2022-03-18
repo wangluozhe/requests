@@ -27,6 +27,24 @@ func main() {
 		"host",
 		"accept",
 	}
+	//headers := &http.Header{
+	//	"authority": {"www.wayfair.com"},
+	//	"Accept": {"*/*"},
+	//	"Accept-Encoding": {"gzip, deflate, br"},
+	//	"Authority": {"www.wayfair.com"},
+	//	//"Content-Length": {"0"},
+	//	"Host": {"httpbin.org"},
+	//	"User-Agent": {"golang-requests 1.0"},
+	//	http.HeaderOrderKey: []string{
+	//		"user-agent",
+	//		"host",
+	//		"accept-encoding",
+	//		"connection",
+	//		"accept",
+	//		"authority",
+	//		"content-length",
+	//	},
+	//}
 	req.Headers = headers
 	r, err := requests.Get("https://httpbin.org/get", req)
 	if err != nil {

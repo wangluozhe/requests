@@ -105,30 +105,22 @@ func (this *PrepareRequest) Prepare_url(rawurl string, params *url.Params) error
 
 // 预处理headers
 func (this *PrepareRequest) Prepare_headers(headers *http.Header) error {
-	h := url.NewHeaders()
-	if headers != nil{
-		for key,values := range *headers{
-			h.Set(key,values[0])
+	this.Headers = url.NewHeaders()
+	if headers != nil {
+		for key, values := range *headers {
+			if len(values) == 1 {
+				this.Headers.Set(key, values[0])
+			} else {
+				for index, value := range values {
+					if index == 0 {
+						this.Headers.Set(key, value)
+					} else {
+						this.Headers.Add(key, value)
+					}
+				}
+			}
 		}
 	}
-	this.Headers = h
-	//this.Headers = url.NewHeaders().Headers()
-	//if headers != nil {
-	//	for key, values := range *headers {
-	//		if len(values) < 1 {
-	//			this.Headers.Set(key, values[0])
-	//		} else {
-	//			for index, value := range values {
-	//				if index == 0 {
-	//					this.Headers.Set(key, value)
-	//				} else {
-	//					this.Headers.Add(key, value)
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
-	//this.Headers = headers
 	return nil
 }
 
