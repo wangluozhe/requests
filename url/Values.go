@@ -20,6 +20,11 @@ func ParseValues(params string) *Values {
 	return p
 }
 
+// 解析Data字符串为Values结构体
+func ParseData(data string) *Values {
+	return ParseValues(data)
+}
+
 // 初始化Values结构体
 func NewValues() *Values {
 	return &Values{}

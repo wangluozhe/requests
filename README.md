@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.02-blue)]()
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.03-blue)]()
 
 requests支持以下新特性：
 
@@ -23,7 +23,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版本
 
 ```bash
-go get github.com/wangluozhe/requests@v1.0.02
+go get github.com/wangluozhe/requests@v1.0.03
 ```
 
 
@@ -93,6 +93,16 @@ r := requests.Options("http://httpbin.org/get")
 params := url.NewParams()
 params.Set("key1","value1")
 params.Set("key2","value2")
+r, err := requests.Get("http://httpbin.org/get",&url.Request{Params: params})
+if err != nil {
+	fmt.Println(err)
+}
+```
+
+或者：
+
+```go
+params := url.ParseParams("key1=value1&key2=value2")
 r, err := requests.Get("http://httpbin.org/get",&url.Request{Params: params})
 if err != nil {
 	fmt.Println(err)
@@ -242,13 +252,13 @@ io.Copy(f,resp.Body)
 例如，在前一个示例中我们没有指定 content-type:
 
 ```go
-url := "https://api.github.com/some/endpoint"
+rawurl := "https://api.github.com/some/endpoint"
 headers := url.NewHeaders()
 headers.Set("user-agent", "my-app/0.0.1")
 req := url.NewRequest()
 req.Headers = headers
 
-r, err := requests.Get(url, req)
+r, err := requests.Get(rawurl, req)
 ```
 
 注意: 定制 header 的优先级低于某些特定的信息源，例如：
@@ -309,6 +319,48 @@ func main(){
 }
 ```
 
+或者：
+
+```go
+package main
+
+import (
+	"github.com/wangluozhe/requests/url"
+)
+
+func main(){
+    req := url.NewRequest()
+    req.Headers = url.ParseHeaders(`
+    :authority: spidertools.cn
+    :method: GET
+    :path: /
+    :scheme: https
+    accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+    accept-encoding: gzip, deflate, br
+    accept-language: zh-CN,zh;q=0.9
+    cache-control: no-cache
+    cookie: _ga=GA1.1.630251354.1645893020; Hm_lvt_def79de877408c7bd826e49b694147bc=1647245863,1647936048,1648296630; Hm_lpvt_def79de877408c7bd826e49b694147bc=1648296630
+    pragma: no-cache
+    sec-ch-ua: " Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"
+    sec-ch-ua-mobile: ?0
+    sec-ch-ua-platform: "Windows"
+    sec-fetch-dest: document
+    sec-fetch-mode: navigate
+    sec-fetch-site: same-origin
+    sec-fetch-user: ?1
+    upgrade-insecure-requests: 1
+    user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36
+    `) // 注意：这是反引号，不是单引号
+    r, err := requests.Get("https://httpbin.org/get", req)
+    if err != nil {
+        fmt.Println(err)
+    }
+    fmt.Println("text:", r.Text)
+
+    // 最好用fiddler抓包工具查看一下
+}
+```
+
 
 
 ## 更加复杂的 POST 请求
@@ -322,6 +374,26 @@ data.Set("key2","value2")
 
 req := url.NewRequest()
 req.Data = data
+r, err := requests.Post("http://www.baidu.com",req)
+if err != nil {
+    fmt.Println(err)
+}
+
+fmt.Println(resp.Text)
+
+...
+"form": {
+    "key1": "value1", 
+    "key2": "value2"
+}
+...
+```
+
+或者：
+
+```go
+req := url.NewRequest()
+req.Data = url.ParseData("key1=value1&key2=value2")
 r, err := requests.Post("http://www.baidu.com",req)
 if err != nil {
     fmt.Println(err)
@@ -531,6 +603,7 @@ fmt.Println(r.Cookies)
 ```go
 req := url.NewRequest()
 cookies,_ := cookiejar.New(nil)
+// cookies := url.NewCookies() // 推荐使用这种
 urls, _ := url.Parse("http://httpbin.org/cookies")
 cookies.SetCookies(urls,[]*http.Cookie{&http.Cookie{
     Name:       "cookies_are",
@@ -545,6 +618,37 @@ if err != nil {
 fmt.Println(r.Text)
 
 {"cookies": {"cookies_are": "working"}}
+```
+
+或者：
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/wangluozhe/requests"
+	"github.com/wangluozhe/requests/url"
+)
+
+func main() {
+	rawUrl := "http://httpbin.org/cookies"
+	req := url.NewRequest()
+	req.Cookies = url.ParseCookies(rawUrl,"_ga=GA1.1.630251354.1645893020; Hm_lvt_def79de877408c7bd826e49b694147bc=1647245863,1647936048,1648296630; Hm_lpvt_def79de877408c7bd826e49b694147bc=1648301329")
+	r, err := requests.Get(rawUrl, req)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(r.Text)
+}
+
+{
+  "cookies": {
+    "Hm_lpvt_def79de877408c7bd826e49b694147bc": "1648301329", 
+    "Hm_lvt_def79de877408c7bd826e49b694147bc": "1647245863,1647936048,1648296630", 
+    "_ga": "GA1.1.630251354.1645893020"
+  }
+}
 ```
 
 
