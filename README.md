@@ -818,3 +818,62 @@ fmt.Println(r.Text)
 {"ja3_hash":"b32309a26951912be7dba376398abc3b", "ja3": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36"}
 ```
 
+
+
+# 编码
+
+requests支持一些常用的编码方式，并且命名更使人易懂。传递的参数可为`字符串（string）`或`字符数组（[]byte）`类型。
+
+## URI编码
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/wangluozhe/requests/utils"
+)
+
+func main() {
+	url := "https://www.baidu.com"
+	encode := utils.EncodeURIComponent(url)
+	fmt.Println(encode)
+	decode := utils.DecodeURIComponent(encode)
+	fmt.Println(decode)
+}
+
+https%3A%2F%2Fwww.baidu.com
+https://www.baidu.com
+```
+
+
+
+## Base64编码
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/wangluozhe/requests/utils"
+)
+
+func main() {
+	url := "https://www.baidu.com"
+	base64en := utils.Base64Encode(url)
+	fmt.Println(base64en)
+	base64de := utils.Base64Decode(base64en)
+	fmt.Println(base64de)
+    // 或者像JavaScript语言一样
+	btoa := utils.Btoa(url)
+	fmt.Println(btoa)
+	atob := utils.Atob(btoa)
+	fmt.Println(atob)
+}
+
+aHR0cHM6Ly93d3cuYmFpZHUuY29t
+https://www.baidu.com
+aHR0cHM6Ly93d3cuYmFpZHUuY29t
+https://www.baidu.com
+```
+
