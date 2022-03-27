@@ -2,8 +2,45 @@ package utils
 
 import (
 	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"net/url"
 )
+
+// 只接受string和[]byte类型
+func stringAndByte(s interface{}) []byte {
+	var byte_s []byte
+	var err error
+	switch s.(type) {
+	case string:
+		byte_s = []byte(s.(string))
+	case []byte:
+		byte_s = s.([]byte)
+	default:
+		err = errors.New("Please check whether the type is string and []byte.")
+		panic(err)
+	}
+	return byte_s
+}
+
+// Hex编码
+func HexEncode(s interface{}) []byte {
+	byte_s := stringAndByte(s)
+	dst := make([]byte, hex.EncodedLen(len(byte_s)))
+	n := hex.Encode(dst, byte_s)
+	return dst[:n]
+}
+
+// Hex解码
+func HexDecode(s interface{}) []byte {
+	byte_s := stringAndByte(s)
+	dst := make([]byte, hex.DecodedLen(len(byte_s)))
+	n, err := hex.Decode(dst, byte_s)
+	if err != nil {
+		panic(err)
+	}
+	return dst[:n]
+}
 
 // URI编码
 func EncodeURIComponent(s string) string {

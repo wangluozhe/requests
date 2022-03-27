@@ -7,6 +7,12 @@ import (
 
 func main() {
 	url := "https://www.baidu.com"
+	hexen := utils.HexEncode(url)
+	fmt.Println(hexen)
+	fmt.Println(string(hexen))
+	hexde := utils.HexDecode(hexen)
+	fmt.Println(hexde)
+	fmt.Println(string(hexde))
 	encode := utils.EncodeURIComponent(url)
 	fmt.Println(encode)
 	decode := utils.DecodeURIComponent(encode)

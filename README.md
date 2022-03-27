@@ -824,6 +824,38 @@ fmt.Println(r.Text)
 
 requests支持一些常用的编码方式，并且命名更使人易懂。传递的参数可为`字符串（string）`或`字符数组（[]byte）`类型。
 
+
+
+## 16进制编码
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/wangluozhe/requests/utils"
+)
+
+func main() {
+	url := "https://www.baidu.com"
+	hexen := utils.HexEncode(url)
+	fmt.Println(hexen)
+	fmt.Println(string(hexen))
+	hexde := utils.HexDecode(hexen)
+	fmt.Println(hexde)
+	fmt.Println(string(hexde))
+}
+
+[54 56 55 52 55 52 55 48 55 51 51 97 50 102 50 102 55 55 55 55 55 55 50 101 54 50 54 49 54 57 54 52 55 53 50 101 54 51 54 102 54 100]
+68747470733a2f2f7777772e62616964752e636f6d
+[104 116 116 112 115 58 47 47 119 119 119 46 98 97 105 100 117 46 99 111 109]
+https://www.baidu.com
+```
+
+
+
+
+
 ## URI编码
 
 ```go
