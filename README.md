@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.02-blue)]()
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.03-blue)]()
 
 requests支持以下新特性：
 
@@ -23,7 +23,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版本
 
 ```bash
-go get github.com/wangluozhe/requests@v1.0.02
+go get github.com/wangluozhe/requests@v1.0.03
 ```
 
 
@@ -854,8 +854,6 @@ https://www.baidu.com
 
 
 
-
-
 ## URI编码
 
 ```go
@@ -867,15 +865,27 @@ import (
 )
 
 func main() {
-	url := "https://www.baidu.com"
+	url := "https://www.baidu.com?page=10&abc=123&name=你好啊"
 	encode := utils.EncodeURIComponent(url)
 	fmt.Println(encode)
 	decode := utils.DecodeURIComponent(encode)
 	fmt.Println(decode)
+    encode1 := utils.EncodeURI(url)
+	fmt.Println(encode1)
+	decode1 := utils.DecodeURI(encode1)
+	fmt.Println(decode1)
+    escape := utils.Escape(url)
+	fmt.Println(escape)
+	unescape := utils.UnEscape(escape)
+	fmt.Println(unescape)
 }
 
-https%3A%2F%2Fwww.baidu.com
-https://www.baidu.com
+https%3A%2F%2Fwww.baidu.com%3Fpage%3D10%26abc%3D123%26name%3D%E4%BD%A0%E5%A5%BD%E5%95%8A
+https://www.baidu.com?page=10&abc=123&name=你好啊
+https://www.baidu.com?page=10&abc=123&name=%E4%BD%A0%E5%A5%BD%E5%95%8A
+https://www.baidu.com?page=10&abc=123&name=你好啊
+https%3A//www.baidu.com%3Fpage%3D10%26abc%3D123%26name%3D%u4f60%u597d%u554a
+https://www.baidu.com?page=10&abc=123&name=你好啊
 ```
 
 

@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	url := "https://www.baidu.com"
+	url := "https://www.baidu.com?page=10&abc=123&name=你好啊"
 	hexen := utils.HexEncode(url)
 	fmt.Println(hexen)
 	fmt.Println(string(hexen))
@@ -17,6 +17,10 @@ func main() {
 	fmt.Println(encode)
 	decode := utils.DecodeURIComponent(encode)
 	fmt.Println(decode)
+	encode1 := utils.EncodeURI(url)
+	fmt.Println(encode1)
+	decode1 := utils.DecodeURI(encode1)
+	fmt.Println(decode1)
 	base64en := utils.Base64Encode(url)
 	fmt.Println(base64en)
 	base64de := utils.Base64Decode(base64en)
@@ -25,4 +29,8 @@ func main() {
 	fmt.Println(btoa)
 	atob := utils.Atob(btoa)
 	fmt.Println(atob)
+	escape := utils.Escape(url)
+	fmt.Println(escape)
+	unescape := utils.UnEscape(escape)
+	fmt.Println(unescape)
 }
