@@ -19,10 +19,10 @@ func ParseCookies(rawurl, cookies string) *cookiejar.Jar {
 	cookieList := strings.Split(cookies, ";")
 	urls, _ := url.Parse(rawurl)
 	for _, cookie := range cookieList {
+		cookie = strings.TrimSpace(cookie)
 		if cookie == "" {
 			continue
 		}
-		cookie = strings.TrimSpace(cookie)
 		keyValue := strings.Split(cookie, "=")
 		if len(keyValue) != 2 {
 			panic(errors.New("该字符串不符合Cookies标准"))
