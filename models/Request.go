@@ -14,7 +14,7 @@ type Request struct {
 	Cookies *cookiejar.Jar
 	Data *url.Values
 	Files *url.Files
-	Json map[string]string
+	Json map[string]interface{}
 	Auth []string
 }
 

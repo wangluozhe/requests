@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.03-blue)]()
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.04-blue)]()
 
 requests支持以下新特性：
 
@@ -23,7 +23,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版本
 
 ```bash
-go get github.com/wangluozhe/requests@v1.0.03
+go get github.com/wangluozhe/requests@v1.0.04
 ```
 
 
@@ -445,19 +445,62 @@ fmt.Println(resp.Text)
 你可以使用 `Json` 参数直接传递，然后它就会被自动编码。
 
 ```go
-req := url.NewRequest()
-req.Json = map[string]string{"some":"data"}
-r, err := requests.Post("http://httpbin.org/post",req)
-if err != nil {
-    fmt.Println(err)
-}
-fmt.Println(resp.Text)
+package main
 
-...
-"json": {
-    "some": "data"
+import (
+	"fmt"
+	"github.com/wangluozhe/requests"
+	"github.com/wangluozhe/requests/url"
+)
+
+func main() {
+	req := url.NewRequest()
+	req.Json = map[string]interface{}{ // 修正老版map[string]string
+		"some":   "data",
+		"name":   "测试",
+		"colors": []string{"蓝色", "绿色", "紫色"},
+		"data": map[string]interface{}{
+			"json": true,
+			"age":  15,
+		},
+	}
+	r, err := requests.Post("http://httpbin.org/post", req)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(r.Text)
 }
-...
+
+{
+  "args": {}, 
+  "data": "{\"colors\":[\"\u84dd\u8272\",\"\u7eff\u8272\",\"\u7d2b\u8272\"],\"data\":{\"age\":15,\"json\":true},\"name\":\"\u6d4b\u8bd5\",\"some\":\"data\"}", 
+  "files": {}, 
+  "form": {}, 
+  "headers": {
+    "Accept": "*/*", 
+    "Accept-Encoding": "gzip, deflate, br", 
+    "Content-Length": "99", 
+    "Content-Type": "application/json", 
+    "Host": "httpbin.org", 
+    "User-Agent": "golang-requests 1.0", 
+    "X-Amzn-Trace-Id": "Root=1-6241ac54-4345fed071127ed54d2ae83b"
+  }, 
+  "json": {
+    "colors": [
+      "\u84dd\u8272", 
+      "\u7eff\u8272", 
+      "\u7d2b\u8272"
+    ], 
+    "data": {
+      "age": 15, 
+      "json": true
+    }, 
+    "name": "\u6d4b\u8bd5", 
+    "some": "data"
+  }, 
+  "origin": "220.249.16.210", 
+  "url": "http://httpbin.org/post"
+}
 ```
 
 

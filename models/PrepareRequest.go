@@ -42,7 +42,7 @@ type PrepareRequest struct {
 }
 
 // 预处理所有数据
-func (this *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]string, auth []string) error {
+func (this *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]interface{}, auth []string) error {
 	err := this.Prepare_method(method)
 	if err != nil {
 		return err
@@ -125,7 +125,7 @@ func (this *PrepareRequest) Prepare_headers(headers *http.Header) error {
 }
 
 // 预处理body
-func (this *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]string) error {
+func (this *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}) error {
 	var body string
 	var content_type string
 	var err error
