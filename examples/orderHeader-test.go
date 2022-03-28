@@ -67,7 +67,7 @@ func main() {
 	sec-fetch-user: ?1
 	upgrade-insecure-requests: 1
 	user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36
-`)
+	`)
 	r, err := requests.Get("https://httpbin.org/get", req)
 	if err != nil {
 		fmt.Println(err)

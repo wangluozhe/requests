@@ -17,10 +17,10 @@ func ParseHeaders(headers string) *http.Header {
 	headerOrder := []string{}
 	lines := strings.Split(headers, "\n")
 	for _, header := range lines {
+		header = strings.TrimSpace(header)
 		if header == "" {
 			continue
 		}
-		header = strings.TrimSpace(header)
 		header = strings.TrimLeft(header, ":")
 		keyValue := strings.SplitN(header, ":", 2)
 		if len(keyValue) != 2 {
