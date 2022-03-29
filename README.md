@@ -510,12 +510,12 @@ func main() {
 requests 使得上传多部分编码文件变得很简单：
 
 ```go
-files := url2.NewFiles()
+files := url.NewFiles()
 // SetFile(name,fileName,filePath,contentType)
 // name为字段名，fileName为上传的文件名，filePath为上传文件的绝对路径，contentType为上传的文件类型
 // 如果contentType设置为""，则默认为"application/octet-stream"
 files.SetFile("api","api","D:\\Go\\github.com\\wangluozhe\\requests\\api.go","")
-req := url2.NewRequest()
+req := url.NewRequest()
 req.Files = files
 r, err := requests.Post("http://httpbin.org/post",req)
 if err != nil {
@@ -533,17 +533,17 @@ fmt.Println(r.Text)
 requests使得FormData的使用也方便多了：
 
 ```go
-files := url2.NewFiles()
+files := url.NewFiles()
 // SetFile(name,value)
 // name为字段名，value为值
 files.SetField("name","value")
-req := url2.NewRequest()
+req := url.NewRequest()
 req.Files = files
 r, err := requests.Post("http://httpbin.org/post",req)
 if err != nil {
     fmt.Println(err)
 }
-fmt.Println(resp.Text)
+fmt.Println(r.Text)
 
 ...
 "form": {
@@ -765,7 +765,7 @@ fmt.Println(r.History)
 你可以告诉 requests 在经过以 `Timeout` 参数设定的秒数时间之后停止等待响应。基本上所有的生产代码都应该使用这一参数。如果不使用，你的程序可能会永远失去响应：
 
 ```go
-req := url2.NewRequest()
+req := url.NewRequest()
 req.Timeout = 1 * time.Millisecond
 r, err := requests.Get("http://github.com",req)
 if err != nil {

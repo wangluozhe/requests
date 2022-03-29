@@ -15,7 +15,6 @@ func NewCookies() *cookiejar.Jar {
 
 func ParseCookies(rawurl, cookies string) *cookiejar.Jar {
 	c := NewCookies()
-	cookies = "_ga=GA1.1.630251354.1645893020; Hm_lvt_def79de877408c7bd826e49b694147bc=1647245863,1647936048,1648296630; Hm_lpvt_def79de877408c7bd826e49b694147bc=1648301329"
 	cookieList := strings.Split(cookies, ";")
 	urls, _ := url.Parse(rawurl)
 	for _, cookie := range cookieList {
@@ -23,7 +22,7 @@ func ParseCookies(rawurl, cookies string) *cookiejar.Jar {
 		if cookie == "" {
 			continue
 		}
-		keyValue := strings.Split(cookie, "=")
+		keyValue := strings.SplitN(cookie, "=", 2)
 		if len(keyValue) != 2 {
 			panic(errors.New("该字符串不符合Cookies标准"))
 		}
