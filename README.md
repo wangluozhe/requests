@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.04-blue)]()
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.1-blue)]()
 
 requests支持以下新特性：
 
@@ -23,7 +23,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版本
 
 ```bash
-go get github.com/wangluozhe/requests@v1.0.04
+go get github.com/wangluozhe/requests@v1.0.1
 ```
 
 
@@ -76,9 +76,9 @@ r, err := requests.Post("http://httpbin.org/post", &url.Request{Data: data})
 data := url.NewData()
 data.Set("key","value")
 r, err := requests.Post("http://httpbin.org/post", &url.Request{Data: data})
-r := requests.Delete("http://httpbin.org/delete")
-r := requests.Head("http://httpbin.org/get")
-r := requests.Options("http://httpbin.org/get")
+r, err = requests.Delete("http://httpbin.org/delete")
+r, err = requests.Head("http://httpbin.org/get")
+r, err = requests.Options("http://httpbin.org/get")
 ```
 
 都很不错吧，但这也仅是 requests 的冰山一角呢。
@@ -185,7 +185,7 @@ func main(){
 		fmt.Println(err)
 	}
 	jpg,_ := os.Create("1.jpg")
-	io.Copy(jpg,resp.Body)		// 第一种
+	io.Copy(jpg,r.Body)		// 第一种
 	//jpg.Write(resp.Content)	// 第二种
 }
 ```
@@ -194,7 +194,9 @@ func main(){
 
 ## JSON 响应内容
 
-Requests 中也有一个内置的 JSON 解码器，助你处理 JSON 数据：
+Requests 中也有一个内置的 JSON 解码器，助你处理 JSON 数据（或者使用第三方库[go-simplejson](https://github.com/bitly/go-simplejson)）：
+
+[go-simplejson文档](https://pkg.go.dev/github.com/bitly/go-simplejson)
 
 ```go
 package main
@@ -209,7 +211,8 @@ func main(){
     if err != nil{
     	fmt.Println(err)
     }
-    json, err := r.Json()
+    json, err := r.Json() // 推荐使用r.SimpleJson，自带的json解码使用太过于复杂
+    // json, err := r.SimpleJson()
     fmt.Println(json, err)
 }
 
@@ -240,7 +243,7 @@ fmt.Println(r.Body)
 
 ```go
 f, _ := os.Create("baidu.txt")
-io.Copy(f,resp.Body)
+io.Copy(f,r.Body)
 ```
 
 
@@ -379,7 +382,7 @@ if err != nil {
     fmt.Println(err)
 }
 
-fmt.Println(resp.Text)
+fmt.Println(r.Text)
 
 ...
 "form": {
@@ -399,7 +402,7 @@ if err != nil {
     fmt.Println(err)
 }
 
-fmt.Println(resp.Text)
+fmt.Println(r.Text)
 
 ...
 "form": {
@@ -424,7 +427,7 @@ r, err := requests.Post("http://httpbin.org/post",req)
 if err != nil {
     fmt.Println(err)
 }
-fmt.Println(resp.Text)
+fmt.Println(r.Text)
 
 ...
 "form": {
@@ -944,7 +947,11 @@ import (
 )
 
 func main() {
-	url := "https://www.baidu.com"
+	url := "https://www.baidu.com?page=10&abc=123&name=你好啊"
+    base32en := utils.Base32Encode(url)
+	fmt.Println(base32en)
+	base32de := utils.Base32Decode(base32en)
+	fmt.Println(base32de)
 	base64en := utils.Base64Encode(url)
 	fmt.Println(base64en)
 	base64de := utils.Base64Decode(base64en)
@@ -956,9 +963,179 @@ func main() {
 	fmt.Println(atob)
 }
 
-aHR0cHM6Ly93d3cuYmFpZHUuY29t
-https://www.baidu.com
-aHR0cHM6Ly93d3cuYmFpZHUuY29t
-https://www.baidu.com
+NB2HI4DTHIXS653XO4XGEYLJMR2S4Y3PNU7XAYLHMU6TCMBGMFRGGPJRGIZSM3TBNVST3ZF5UDS2LPPFSWFA====
+https://www.baidu.com?page=10&abc=123&name=你好啊
+aHR0cHM6Ly93d3cuYmFpZHUuY29tP3BhZ2U9MTAmYWJjPTEyMyZuYW1lPeS9oOWlveWVig==
+https://www.baidu.com?page=10&abc=123&name=你好啊
+aHR0cHM6Ly93d3cuYmFpZHUuY29tP3BhZ2U9MTAmYWJjPTEyMyZuYW1lPeS9oOWlveWVig==
+https://www.baidu.com?page=10&abc=123&name=你好啊
+```
+
+
+
+# 加密算法
+
+requests支持一些常用的加密算法，并且命名更使人易懂。传递的参数可为`字符串（string）`或`字符数组（[]byte）`类型。
+
+
+
+## 线性散列（Hash）算法
+
+`MD系列`：
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/wangluozhe/requests/utils"
+)
+
+func main() {
+	m := utils.MD4("123")
+	fmt.Println("MD4:", m)
+
+	m = utils.RIPEMD160("123")
+	fmt.Println("RIPEMD160:", m)
+
+	m = utils.MD5("123")
+	fmt.Println("MD5:", m)
+}
+
+MD4: c58cda49f00748a3bc0fcfa511d516cb
+RIPEMD160: e3431a8e0adbf96fd140103dc6f63a3f8fa343ab
+MD5: 202cb962ac59075b964b07152d234b70
+```
+
+`SHA系列`：
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/wangluozhe/requests/utils"
+)
+
+func main() {
+	s1 := utils.SHA1("123")
+	b64 := utils.Btoa(s1)
+	h16 := utils.HexEncode(s1)
+	fmt.Println("SHA1-base64:", b64)
+	fmt.Println("SHA1-hex:", string(h16))
+
+	s2 := utils.SHA224("123")
+	b64 = utils.Btoa(s2)
+	h16 = utils.HexEncode(s2)
+	fmt.Println("SHA224-base64:", b64)
+	fmt.Println("SHA224-hex:", string(h16))
+
+	s2 = utils.SHA256("123")
+	b64 = utils.Btoa(s2)
+	h16 = utils.HexEncode(s2)
+	fmt.Println("SHA256-base64:", b64)
+	fmt.Println("SHA256-hex:", string(h16))
+
+	s5 := utils.SHA384("123")
+	b64 = utils.Btoa(s5)
+	h16 = utils.HexEncode(s5)
+	fmt.Println("SHA384-base64:", b64)
+	fmt.Println("SHA384-hex:", string(h16))
+
+	s5 = utils.SHA512("123")
+	b64 = utils.Btoa(s5)
+	h16 = utils.HexEncode(s5)
+	fmt.Println("SHA512-base64:", b64)
+	fmt.Println("SHA512-hex:", string(h16))
+}
+
+SHA1-base64: QL0AFWMIX8NRZTKeof9cXsvbvu8=
+SHA1-hex: 40bd001563085fc35165329ea1ff5c5ecbdbbeef
+SHA224-base64: eNgEXWhKvS7s6SN1jzzXgUid86SOEniYJGYBfw==
+SHA224-hex: 78d8045d684abd2eece923758f3cd781489df3a48e1278982466017f
+SHA256-base64: pmWkWSBCL51Bfkhn79xPuKBKHz//H6B+mY6G9/eieuM=
+SHA256-hex: a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3
+SHA384-base64: mgqC8MDPMUcNev/t40BsyaqEEGcVILcnBE7aFbTCVTKptc2Kr5zsSRnXYlW2v7AP
+SHA384-hex: 9a0a82f0c0cf31470d7affede3406cc9aa8410671520b727044eda15b4c25532a9b5cd8aaf9cec4919d76255b6bfb00f
+SHA512-base64: PJkJr+wlNU1VHa4hWQuybjjVPyFzuNPcPu5MBH56scHri4UQPjvnumE7MbtcnDYhTcnxSkL9ei/bhIVrylxEwg==
+SHA512-hex: 3c9909afec25354d551dae21590bb26e38d53f2173b8d3dc3eee4c047e7ab1c1eb8b85103e3be7ba613b31bb5c9c36214dc9f14a42fd7a2fdb84856bca5c44c2
+```
+
+`Hmac系列`：
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/wangluozhe/requests/utils"
+)
+
+func main() {
+	md4 := utils.HmacMD4("123", "123")
+	bs64 := utils.Btoa(md4)
+	hex := utils.HexEncode(md4)
+	fmt.Println("HmacMD4-base64:", bs64)
+	fmt.Println("HmacMD4-hex:", string(hex))
+
+	r160 := utils.HmacRIPEMD160("123", "123")
+	bs64 = utils.Btoa(r160)
+	hex = utils.HexEncode(r160)
+	fmt.Println("HmacRIPEMD160-base64:", bs64)
+	fmt.Println("HmacRIPEMD160-hex:", string(hex))
+
+	md5 := utils.HmacMD5("123", "123")
+	bs64 = utils.Btoa(md5)
+	hex = utils.HexEncode(md5)
+	fmt.Println("HmacMD5-base64:", bs64)
+	fmt.Println("HmacMD5-hex:", string(hex))
+
+	sha1 := utils.HmacSHA1("123", "123")
+	bs64 = utils.Btoa(sha1)
+	hex1 := utils.HexEncode(sha1)
+	fmt.Println("HmacSHA1-base64:", bs64)
+	fmt.Println("HmacSHA1-hex:", string(hex1))
+
+	sha224 := utils.HmacSHA224("123", "123")
+	bs64 = utils.Btoa(sha224)
+	hex2 := utils.HexEncode(sha224)
+	fmt.Println("HmacSHA224-base64:", bs64)
+	fmt.Println("HmacSHA224-hex:", string(hex2))
+
+	sha256 := utils.HmacSHA256("123", "123")
+	bs64 = utils.Btoa(sha256)
+	hex3 := utils.HexEncode(sha256)
+	fmt.Println("HmacSHA256-base64:", bs64)
+	fmt.Println("HmacSHA256-hex:", string(hex3))
+
+	sha384 := utils.HmacSHA384("123", "123")
+	bs64 = utils.Btoa(sha384)
+	hex4 := utils.HexEncode(sha384)
+	fmt.Println("HmacSHA384-base64:", bs64)
+	fmt.Println("HmacSHA384-hex:", string(hex4))
+
+	sha512 := utils.HmacSHA512("123", "123")
+	bs64 = utils.Btoa(sha512)
+	hex5 := utils.HexEncode(sha512)
+	fmt.Println("HmacSHA512-base64:", bs64)
+	fmt.Println("HmacSHA512-hex:", string(hex5))
+}
+
+HmacMD4-base64: u3owGP+65If/IdHlG8klJg==
+HmacMD4-hex: bb7a3018ffbae487ff21d1e51bc92526
+HmacRIPEMD160-base64: Wt1vTR04ulq64/WbCZsoGMY1wM8=
+HmacRIPEMD160-hex: 5add6f4d1d38ba5abae3f59b099b2818c635c0cf
+HmacMD5-base64: sqHsDz4GBwmdfzl5HATppA==
+HmacMD5-hex: b2a1ec0f3e0607099d7f39791c04e9a4
+HmacSHA1-base64: o8Ak8BzMs7Y0V9hIsNL4nB90Sj0=
+HmacSHA1-hex: a3c024f01cccb3b63457d848b0d2f89c1f744a3d
+HmacSHA224-base64: +S2OBxrerlFMGsD5RQLnW7XCi4F+DgoB52I0jw==
+HmacSHA224-hex: f92d8e071adeae514c1ac0f94502e75bb5c28b817e0e0a01e762348f
+HmacSHA256-base64: PK/kD5K+asd9J5K0smfC2hHj8wh7k7sZxsUTN4aYS0Q=
+HmacSHA256-hex: 3cafe40f92be6ac77d2792b4b267c2da11e3f3087b93bb19c6c5133786984b44
+HmacSHA384-base64: b2i1J57kVppw+dC071Gk25fXfLkBmcILY38gkOOXgPjuyE8wK+LuP+w2pzTZ5tpb
+HmacSHA384-hex: 6f68b5279ee4569a70f9d0b4ef51a4db97d77cb90199c20b637f2090e39780f8eec84f302be2ee3fec36a734d9e6da5b
+HmacSHA512-base64: BjT9BDgLuvUGnIxGp0x9Id90FIiNmAwnoW1eJiy4yQWROcIS0JJgAPrwJuSDkEzvri9enZvV9R+8KsTE3lGBFQ==
+HmacSHA512-hex: 0634fd04380bbaf5069c8c46a74c7d21df7414888d980c27a16d5e262cb8c9059139c212d0926000faf026e483904cefae2f5e9d9bd5f51fbc2ac4c4de518115
 ```
 

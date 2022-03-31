@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -94,6 +95,22 @@ func DecodeURI(s interface{}) string {
 		es = strings.ReplaceAll(es, "$"+string(ss[i])+"$", "%"+strings.ToUpper(string(HexEncode(string(ss[i])))))
 	}
 	return es
+}
+
+// Base32编码
+func Base32Encode(s interface{}) string {
+	byte_s := stringAndByte(s)
+	return base32.StdEncoding.EncodeToString(byte_s)
+}
+
+// Base32解码
+func Base32Decode(s interface{}) string {
+	byte_s := stringAndByte(s)
+	str, err := base32.StdEncoding.DecodeString(string(byte_s))
+	if err != nil {
+		panic(err)
+	}
+	return string(str)
 }
 
 // Base64编码
