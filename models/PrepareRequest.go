@@ -42,25 +42,25 @@ type PrepareRequest struct {
 }
 
 // 预处理所有数据
-func (this *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]interface{}, auth []string) error {
-	err := this.Prepare_method(method)
+func (pr *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]interface{}, auth []string) error {
+	err := pr.Prepare_method(method)
 	if err != nil {
 		return err
 	}
-	err = this.Prepare_url(url, params)
+	err = pr.Prepare_url(url, params)
 	if err != nil {
 		return err
 	}
-	err = this.Prepare_headers(headers)
+	err = pr.Prepare_headers(headers)
 	if err != nil {
 		return err
 	}
-	this.Prepare_cookies(cookies)
-	err = this.Prepare_body(data, files, json)
+	pr.Prepare_cookies(cookies)
+	err = pr.Prepare_body(data, files, json)
 	if err != nil {
 		return err
 	}
-	err = this.Prepare_auth(auth, url)
+	err = pr.Prepare_auth(auth, url)
 	if err != nil {
 		return err
 	}
@@ -68,17 +68,17 @@ func (this *PrepareRequest) Prepare(method, url string, params *url.Params, head
 }
 
 // 预处理method
-func (this *PrepareRequest) Prepare_method(method string) error {
+func (pr *PrepareRequest) Prepare_method(method string) error {
 	method = strings.ToUpper(method)
 	if !inMethod(method) {
 		return errors.New("Method does not conform to HTTP protocol!")
 	}
-	this.Method = method
+	pr.Method = method
 	return nil
 }
 
 // 预处理url
-func (this *PrepareRequest) Prepare_url(rawurl string, params *url.Params) error {
+func (pr *PrepareRequest) Prepare_url(rawurl string, params *url.Params) error {
 	rawurl = strings.TrimSpace(rawurl)
 	urls, err := url.Parse(rawurl)
 	if err != nil {
@@ -99,23 +99,23 @@ func (this *PrepareRequest) Prepare_url(rawurl string, params *url.Params) error
 			urls.Params = url.ParseParams(params.Encode())
 		}
 	}
-	this.Url = urls.String()
+	pr.Url = urls.String()
 	return nil
 }
 
 // 预处理headers
-func (this *PrepareRequest) Prepare_headers(headers *http.Header) error {
-	this.Headers = url.NewHeaders()
+func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
+	pr.Headers = url.NewHeaders()
 	if headers != nil {
 		for key, values := range *headers {
 			if len(values) == 1 {
-				this.Headers.Set(key, values[0])
+				pr.Headers.Set(key, values[0])
 			} else {
 				for index, value := range values {
 					if index == 0 {
-						this.Headers.Set(key, value)
+						pr.Headers.Set(key, value)
 					} else {
-						this.Headers.Add(key, value)
+						pr.Headers.Add(key, value)
 					}
 				}
 			}
@@ -125,7 +125,7 @@ func (this *PrepareRequest) Prepare_headers(headers *http.Header) error {
 }
 
 // 预处理body
-func (this *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}) error {
+func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}) error {
 	var body string
 	var content_type string
 	var err error
@@ -157,37 +157,37 @@ func (this *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, jso
 		content_type = "application/x-www-form-urlencoded"
 		body = data.Encode()
 	}
-	this.prepare_content_length(body)
-	if content_type != "" && this.Headers.Get("Content-Type") == "" {
-		this.Headers.Set("Content-Type", content_type)
+	pr.prepare_content_length(body)
+	if content_type != "" && pr.Headers.Get("Content-Type") == "" {
+		pr.Headers.Set("Content-Type", content_type)
 	}
-	this.Body = ioutil.NopCloser(strings.NewReader(body))
+	pr.Body = ioutil.NopCloser(strings.NewReader(body))
 	return nil
 }
 
 // 预处理body大小
-func (this *PrepareRequest) prepare_content_length(body string) {
+func (pr *PrepareRequest) prepare_content_length(body string) {
 	if body != "" {
 		length := len(body)
 		if length > 0 {
-			this.Headers.Set("Content-Length", strconv.Itoa(length))
+			pr.Headers.Set("Content-Length", strconv.Itoa(length))
 		}
-	} else if (this.Method != "GET" || this.Method != "HEAD") && this.Headers.Get("Content-Length") == "" {
-		this.Headers.Set("Content-Length", "0")
+	} else if (pr.Method != "GET" || pr.Method != "HEAD") && pr.Headers.Get("Content-Length") == "" {
+		pr.Headers.Set("Content-Length", "0")
 	}
 }
 
 // 预处理cookie
-func (this *PrepareRequest) Prepare_cookies(cookies *cookiejar.Jar) {
+func (pr *PrepareRequest) Prepare_cookies(cookies *cookiejar.Jar) {
 	if cookies != nil {
-		this.Cookies = cookies
+		pr.Cookies = cookies
 	} else {
-		this.Cookies, _ = cookiejar.New(nil)
+		pr.Cookies, _ = cookiejar.New(nil)
 	}
 }
 
 // 预处理auth
-func (this *PrepareRequest) Prepare_auth(auth []string, rawurl string) error {
+func (pr *PrepareRequest) Prepare_auth(auth []string, rawurl string) error {
 	if auth == nil {
 		urls, err := url.Parse(rawurl)
 		if err != nil {
@@ -203,7 +203,7 @@ func (this *PrepareRequest) Prepare_auth(auth []string, rawurl string) error {
 		}
 	}
 	if auth != nil && len(auth) == 2 {
-		this.Headers.Set("Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(strings.Join(auth, ":"))))
+		pr.Headers.Set("Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(strings.Join(auth, ":"))))
 	}
 	return nil
 }

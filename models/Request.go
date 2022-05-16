@@ -18,18 +18,18 @@ type Request struct {
 	Auth []string
 }
 
-func (this *Request) Prepare() *PrepareRequest {
+func (req *Request) Prepare() *PrepareRequest {
 	p := &PrepareRequest{}
 	p.Prepare(
-		this.Method,
-		this.Url,
-		this.Params,
-		this.Headers,
-		this.Cookies,
-		this.Data,
-		this.Files,
-		this.Json,
-		this.Auth,
+		req.Method,
+		req.Url,
+		req.Params,
+		req.Headers,
+		req.Cookies,
+		req.Data,
+		req.Files,
+		req.Json,
+		req.Auth,
 	)
 	return p
 }

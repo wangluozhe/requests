@@ -32,19 +32,19 @@ type URL struct {
 }
 
 // URL结构体转字符串
-func (this *URL) String() string {
-	s := this.Scheme + "://"
-	if this.User != nil {
-		s += this.User.String() + "@"
+func (u *URL) String() string {
+	s := u.Scheme + "://"
+	if u.User != nil {
+		s += u.User.String() + "@"
 	}
-	s += this.Host
-	if this.Path == "" {
+	s += u.Host
+	if u.Path == "" {
 		s += "/"
 	}
-	s += this.Path
-	this.RawParams = this.Params.Encode()
-	if this.RawParams != "" {
-		s += "?" + this.RawParams
+	s += u.Path
+	u.RawParams = u.Params.Encode()
+	if u.RawParams != "" {
+		s += "?" + u.RawParams
 	}
 	return s
 }

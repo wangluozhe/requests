@@ -22,24 +22,24 @@ type Files struct {
 }
 
 // Files设置Field参数
-func (this *Files) SetField(name, value string) {
+func (fs *Files) SetField(name, value string) {
 	f := map[string][]map[string]string{
 		name: {{
 			"type":  "field",
 			"value": value,
 		}},
 	}
-	index := SearchStrings(this.indexKey, name)
-	if len(this.indexKey) == 0 || index == -1 {
-		this.files = append(this.files, f)
-		this.indexKey = append(this.indexKey, name)
+	index := SearchStrings(fs.indexKey, name)
+	if len(fs.indexKey) == 0 || index == -1 {
+		fs.files = append(fs.files, f)
+		fs.indexKey = append(fs.indexKey, name)
 	} else {
-		this.files[index] = f
+		fs.files[index] = f
 	}
 }
 
 // Files设置File参数
-func (this *Files) SetFile(name, fileName, filePath, contentType string) {
+func (fs *Files) SetFile(name, fileName, filePath, contentType string) {
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -51,42 +51,42 @@ func (this *Files) SetFile(name, fileName, filePath, contentType string) {
 			"contentType": contentType,
 		}},
 	}
-	index := SearchStrings(this.indexKey, name)
-	if len(this.indexKey) == 0 || index == -1 {
-		this.files = append(this.files, f)
-		this.indexKey = append(this.indexKey, name)
+	index := SearchStrings(fs.indexKey, name)
+	if len(fs.indexKey) == 0 || index == -1 {
+		fs.files = append(fs.files, f)
+		fs.indexKey = append(fs.indexKey, name)
 	} else {
-		this.files[index] = f
+		fs.files[index] = f
 	}
 }
 
 // 获取Files参数值
-func (this *Files) Get(name string) map[string]string {
-	if len(this.files) != 0 {
-		index := SearchStrings(this.indexKey, name)
+func (fs *Files) Get(name string) map[string]string {
+	if len(fs.files) != 0 {
+		index := SearchStrings(fs.indexKey, name)
 		if index != -1 {
-			return this.files[index][name][0]
+			return fs.files[index][name][0]
 		}
 	}
 	return nil
 }
 
 // Files添加Field参数
-func (this *Files) AddField(name, value string) {
+func (fs *Files) AddField(name, value string) {
 	f := map[string]string{
 		"type":  "field",
 		"value": value,
 	}
-	index := SearchStrings(this.indexKey, name)
-	if len(this.indexKey) == 0 || index == -1 {
-		this.SetField(name, value)
+	index := SearchStrings(fs.indexKey, name)
+	if len(fs.indexKey) == 0 || index == -1 {
+		fs.SetField(name, value)
 	} else {
-		this.files[index][name] = append(this.files[index][name], f)
+		fs.files[index][name] = append(fs.files[index][name], f)
 	}
 }
 
 // Files添加File参数
-func (this *Files) AddFile(name, fileName, filePath, contentType string) {
+func (fs *Files) AddFile(name, fileName, filePath, contentType string) {
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -96,27 +96,27 @@ func (this *Files) AddFile(name, fileName, filePath, contentType string) {
 		"path":        filePath,
 		"contentType": contentType,
 	}
-	index := SearchStrings(this.indexKey, name)
-	if len(this.indexKey) == 0 || index == -1 {
-		this.SetFile(name, fileName, filePath, contentType)
+	index := SearchStrings(fs.indexKey, name)
+	if len(fs.indexKey) == 0 || index == -1 {
+		fs.SetFile(name, fileName, filePath, contentType)
 	} else {
-		this.files[index][name] = append(this.files[index][name], f)
+		fs.files[index][name] = append(fs.files[index][name], f)
 	}
 }
 
 // 删除Files参数
-func (this *Files) Del(name string) bool {
-	index := SearchStrings(this.indexKey, name)
-	if len(this.indexKey) == 0 || index == -1 {
+func (fs *Files) Del(name string) bool {
+	index := SearchStrings(fs.indexKey, name)
+	if len(fs.indexKey) == 0 || index == -1 {
 		return false
 	}
-	this.files = append(this.files[:index], this.files[index+1:]...)
-	this.indexKey = append(this.indexKey[:index], this.indexKey[index+1:]...)
+	fs.files = append(fs.files[:index], fs.files[index+1:]...)
+	fs.indexKey = append(fs.indexKey[:index], fs.indexKey[index+1:]...)
 	return true
 }
 
 // Files结构体转FormFile
-func (this *Files) Encode() (*bytes.Buffer, string, error) {
+func (fs *Files) Encode() (*bytes.Buffer, string, error) {
 	var uploadWriter io.Writer
 	var uploadFile *os.File
 	var err error
@@ -124,8 +124,8 @@ func (this *Files) Encode() (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	for index, name := range this.indexKey {
-		itemList := this.files[index][name]
+	for index, name := range fs.indexKey {
+		itemList := fs.files[index][name]
 		for _, item := range itemList {
 			if item["type"] == "field" {
 				writer.WriteField(name, item["value"])
@@ -134,7 +134,7 @@ func (this *Files) Encode() (*bytes.Buffer, string, error) {
 				if contentType == "" {
 					contentType = "application/octet-stream"
 				}
-				h := this.createFormFileHeader(name, item["value"], contentType)
+				h := fs.createFormFileHeader(name, item["value"], contentType)
 				uploadWriter, err = writer.CreatePart(h)
 				if err != nil {
 					return nil, "", err
@@ -162,7 +162,7 @@ func (this *Files) Encode() (*bytes.Buffer, string, error) {
 }
 
 // 创建文件Header
-func (this *Files) createFormFileHeader(name, fileName, contentType string) textproto.MIMEHeader {
+func (fs *Files) createFormFileHeader(name, fileName, contentType string) textproto.MIMEHeader {
 	h := make(textproto.MIMEHeader)
 	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
 		strings.NewReplacer("\\", "\\\\", `"`, "\\\"").Replace(name),

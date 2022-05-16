@@ -24,24 +24,24 @@ type Response struct {
 }
 
 // 使用自带库JSON解析
-func (this *Response) Json() (map[string]interface{}, error) {
+func (res *Response) Json() (map[string]interface{}, error) {
 	js := make(map[string]interface{})
-	err := json.Unmarshal(this.Content, &js)
+	err := json.Unmarshal(res.Content, &js)
 	return js, err
 }
 
 // 使用go-simplejson解析
-func (this *Response) SimpleJson() (*simplejson.Json, error) {
-	return simplejson.NewFromReader(this.Body)
+func (res *Response) SimpleJson() (*simplejson.Json, error) {
+	return simplejson.NewFromReader(res.Body)
 }
 
 // 状态码是否错误
-func (this *Response) RaiseForStatus() error {
+func (res *Response) RaiseForStatus() error {
 	var err error
-	if this.StatusCode >= 400 && this.StatusCode < 500 {
-		err = errors.New(fmt.Sprintf("%d Client Error", this.StatusCode))
-	} else if this.StatusCode >= 500 && this.StatusCode < 600 {
-		err = errors.New(fmt.Sprintf("%d Server Error", this.StatusCode))
+	if res.StatusCode >= 400 && res.StatusCode < 500 {
+		err = errors.New(fmt.Sprintf("%d Client Error", res.StatusCode))
+	} else if res.StatusCode >= 500 && res.StatusCode < 600 {
+		err = errors.New(fmt.Sprintf("%d Server Error", res.StatusCode))
 	}
 	return err
 }

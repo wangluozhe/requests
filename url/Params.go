@@ -42,62 +42,62 @@ type Params struct {
 }
 
 // 设置Params参数
-func (this *Params) Set(key, value string) {
-	p := map[string][]string{
+func (p *Params) Set(key, value string) {
+	pm := map[string][]string{
 		key: []string{value,},
 	}
-	index := SearchStrings(this.indexKey, key)
-	if len(this.indexKey) == 0 || index == -1 {
-		this.params = append(this.params, p)
-		this.indexKey = append(this.indexKey, key)
+	index := SearchStrings(p.indexKey, key)
+	if len(p.indexKey) == 0 || index == -1 {
+		p.params = append(p.params, pm)
+		p.indexKey = append(p.indexKey, key)
 	} else {
-		this.params[index] = p
+		p.params[index] = pm
 	}
 }
 
 // 获取Params参数值
-func (this *Params) Get(key string) string {
-	if len(this.params) != 0 {
-		index := SearchStrings(this.indexKey, key)
+func (p *Params) Get(key string) string {
+	if len(p.params) != 0 {
+		index := SearchStrings(p.indexKey, key)
 		if index != -1 {
-			return this.params[index][key][0]
+			return p.params[index][key][0]
 		}
 	}
 	return ""
 }
 
 // 添加Params参数
-func (this *Params) Add(key, value string) bool {
-	index := SearchStrings(this.indexKey, key)
-	if len(this.indexKey) == 0 || index == -1 {
-		this.Set(key, value)
+func (p *Params) Add(key, value string) bool {
+	index := SearchStrings(p.indexKey, key)
+	if len(p.indexKey) == 0 || index == -1 {
+		p.Set(key, value)
 	} else {
-		this.params[index][key] = append(this.params[index][key], value)
+		p.params[index][key] = append(p.params[index][key], value)
 	}
 	return true
 }
 
 // 删除Params参数
-func (this *Params) Del(key string) bool {
-	index := SearchStrings(this.indexKey, key)
-	if len(this.indexKey) == 0 || index == -1 {
+func (p *Params) Del(key string) bool {
+	index := SearchStrings(p.indexKey, key)
+	if len(p.indexKey) == 0 || index == -1 {
 		return false
 	}
-	this.params = append(this.params[:index], this.params[index+1:]...)
-	this.indexKey = append(this.indexKey[:index], this.indexKey[index+1:]...)
+	p.params = append(p.params[:index], p.params[index+1:]...)
+	p.indexKey = append(p.indexKey[:index], p.indexKey[index+1:]...)
 	return true
 }
 
 // 获取Params的所有Key
-func (this *Params) Keys() []string {
-	return this.indexKey
+func (p *Params) Keys() []string {
+	return p.indexKey
 }
 
 // Params结构体转字符串
-func (this *Params) Encode() string {
+func (p *Params) Encode() string {
 	text := []string{}
-	for index, key := range this.indexKey {
-		item := this.params[index][key]
+	for index, key := range p.indexKey {
+		item := p.params[index][key]
 		for _, value := range item {
 			text = append(text, utils.EncodeURIComponent(key)+"="+utils.EncodeURIComponent(value))
 		}

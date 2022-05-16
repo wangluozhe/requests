@@ -42,25 +42,25 @@ type Values struct {
 }
 
 // 设置Values参数
-func (this *Values) Set(key, value string) {
+func (v *Values) Set(key, value string) {
 	p := map[string][]string{
 		key: []string{value,},
 	}
-	index := SearchStrings(this.indexKey, key)
-	if len(this.indexKey) == 0 || index == -1 {
-		this.values = append(this.values, p)
-		this.indexKey = append(this.indexKey, key)
+	index := SearchStrings(v.indexKey, key)
+	if len(v.indexKey) == 0 || index == -1 {
+		v.values = append(v.values, p)
+		v.indexKey = append(v.indexKey, key)
 	} else {
-		this.values[index] = p
+		v.values[index] = p
 	}
 }
 
 // 获取Values参数值
-func (this *Values) Get(key string) string {
-	if len(this.values) != 0 {
-		index := SearchStrings(this.indexKey, key)
+func (v *Values) Get(key string) string {
+	if len(v.values) != 0 {
+		index := SearchStrings(v.indexKey, key)
 		if index != -1 {
-			return this.values[index][key][0]
+			return v.values[index][key][0]
 		}
 		return ""
 	}
@@ -68,37 +68,37 @@ func (this *Values) Get(key string) string {
 }
 
 // 添加Values参数
-func (this *Values) Add(key, value string) bool {
-	index := SearchStrings(this.indexKey, key)
-	if len(this.indexKey) == 0 || index == -1 {
-		this.Set(key, value)
+func (v *Values) Add(key, value string) bool {
+	index := SearchStrings(v.indexKey, key)
+	if len(v.indexKey) == 0 || index == -1 {
+		v.Set(key, value)
 	} else {
-		this.values[index][key] = append(this.values[index][key], value)
+		v.values[index][key] = append(v.values[index][key], value)
 	}
 	return true
 }
 
 // 删除Values参数
-func (this *Values) Del(key string) bool {
-	index := SearchStrings(this.indexKey, key)
-	if len(this.indexKey) == 0 || index == -1 {
+func (v *Values) Del(key string) bool {
+	index := SearchStrings(v.indexKey, key)
+	if len(v.indexKey) == 0 || index == -1 {
 		return false
 	}
-	this.values = append(this.values[:index], this.values[index+1:]...)
-	this.indexKey = append(this.indexKey[:index], this.indexKey[index+1:]...)
+	v.values = append(v.values[:index], v.values[index+1:]...)
+	v.indexKey = append(v.indexKey[:index], v.indexKey[index+1:]...)
 	return true
 }
 
 // 获取Values的所有Key
-func (this *Values) Keys() []string {
-	return this.indexKey
+func (v *Values) Keys() []string {
+	return v.indexKey
 }
 
 // Values结构体转字符串
-func (this *Values) Encode() string {
+func (v *Values) Encode() string {
 	text := []string{}
-	for index, key := range this.indexKey {
-		item := this.values[index][key]
+	for index, key := range v.indexKey {
+		item := v.values[index][key]
 		for _, value := range item {
 			text = append(text, utils.EncodeURIComponent(key)+"="+utils.EncodeURIComponent(value))
 		}

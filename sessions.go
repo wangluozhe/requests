@@ -23,9 +23,7 @@ import (
 
 // 默认User—Agent
 func default_user_agent() string {
-	name := "golang-requests"
-	user_agent := name + " 1.0"
-	return user_agent
+	return USER_AGENT
 }
 
 // 默认请求头
@@ -146,30 +144,7 @@ func NewSession() *Session {
 
 // 新建默认Session，同上一模一样
 func DefaultSession() *Session {
-	session := &Session{
-		Headers:      default_headers(),
-		Cookies:      nil,
-		Verify:       true,
-		MaxRedirects: DEFAULT_REDIRECT_LIMIT,
-		transport:    nil,
-		request:      nil,
-		client:       nil,
-	}
-	cookies, _ := cookiejar.New(nil)
-	session.Cookies = cookies
-	session.transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: session.Verify,
-		},
-	}
-	session.request = &http.Request{}
-	session.client = &http.Client{
-		Transport:     session.transport,
-		CheckRedirect: nil,
-		Jar:           cookies,
-		Timeout:       DEFAULT_TIMEOUT * time.Second,
-	}
-	return session
+	return NewSession()
 }
 
 // Session结构体
@@ -188,18 +163,19 @@ type Session struct {
 	client       *http.Client
 }
 
-func (this *Session) Prepare_request(request *models.Request) (*models.PrepareRequest, error) {
+// 预请求处理
+func (s *Session) Prepare_request(request *models.Request) (*models.PrepareRequest, error) {
 	var err error
-	params := merge_setting(request.Params, this.Params).(*url.Params)
-	headers := merge_setting(request.Headers, this.Headers).(*http.Header)
+	params := merge_setting(request.Params, s.Params).(*url.Params)
+	headers := merge_setting(request.Headers, s.Headers).(*http.Header)
 	c := request.Cookies
 	if c == nil {
 		c, _ = cookiejar.New(nil)
 	}
 	cookies, _ := cookiejar.New(nil)
-	merge_cookies(request.Url, cookies, this.Cookies)
+	merge_cookies(request.Url, cookies, s.Cookies)
 	merge_cookies(request.Url, cookies, c)
-	auth := merge_setting(request.Auth, this.Auth).([]string)
+	auth := merge_setting(request.Auth, s.Auth).([]string)
 	p := models.NewPrepareRequest()
 	err = p.Prepare(
 		request.Method,
@@ -218,7 +194,8 @@ func (this *Session) Prepare_request(request *models.Request) (*models.PrepareRe
 	return p, nil
 }
 
-func (this *Session) Request(method, rawurl string, request *url.Request) (*models.Response, error) {
+// http请求方式基础函数
+func (s *Session) Request(method, rawurl string, request *url.Request) (*models.Response, error) {
 	if request == nil {
 		request = url.NewRequest()
 	}
@@ -233,70 +210,88 @@ func (this *Session) Request(method, rawurl string, request *url.Request) (*mode
 		Json:    request.Json,
 		Auth:    request.Auth,
 	}
-	preq, err := this.Prepare_request(req)
+	preq, err := s.Prepare_request(req)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := this.Send(preq, request)
+	resp, err := s.Send(preq, request)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (this *Session) Get(rawurl string, req *url.Request) (*models.Response, error) {
-	return this.Request(http.MethodGet, rawurl, req)
+// get请求方式
+func (s *Session) Get(rawurl string, req *url.Request) (*models.Response, error) {
+	return s.Request(http.MethodGet, rawurl, req)
 }
 
-func (this *Session) Post(rawurl string, req *url.Request) (*models.Response, error) {
-	return this.Request(http.MethodPost, rawurl, req)
+// post请求方式
+func (s *Session) Post(rawurl string, req *url.Request) (*models.Response, error) {
+	return s.Request(http.MethodPost, rawurl, req)
 }
 
-func (this *Session) Options(rawurl string, req *url.Request) (*models.Response, error) {
-	return this.Request(http.MethodOptions, rawurl, req)
+// options请求方式
+func (s *Session) Options(rawurl string, req *url.Request) (*models.Response, error) {
+	return s.Request(http.MethodOptions, rawurl, req)
 }
 
-func (this *Session) Head(rawurl string, req *url.Request) (*models.Response, error) {
-	return this.Request(http.MethodHead, rawurl, req)
+// head请求方式
+func (s *Session) Head(rawurl string, req *url.Request) (*models.Response, error) {
+	return s.Request(http.MethodHead, rawurl, req)
 }
 
-func (this *Session) Put(rawurl string, req *url.Request) (*models.Response, error) {
-	return this.Request(http.MethodPut, rawurl, req)
+// put请求方式
+func (s *Session) Put(rawurl string, req *url.Request) (*models.Response, error) {
+	return s.Request(http.MethodPut, rawurl, req)
 }
 
-func (this *Session) Patch(rawurl string, req *url.Request) (*models.Response, error) {
-	return this.Request(http.MethodPatch, rawurl, req)
+// patch请求方式
+func (s *Session) Patch(rawurl string, req *url.Request) (*models.Response, error) {
+	return s.Request(http.MethodPatch, rawurl, req)
 }
 
-func (this *Session) Delete(rawurl string, req *url.Request) (*models.Response, error) {
-	return this.Request(http.MethodDelete, rawurl, req)
+// delete请求方式
+func (s *Session) Delete(rawurl string, req *url.Request) (*models.Response, error) {
+	return s.Request(http.MethodDelete, rawurl, req)
 }
 
-func (this *Session) Connect(rawurl string, req *url.Request) (*models.Response, error) {
-	return this.Request(http.MethodConnect, rawurl, req)
+// connect请求方式
+func (s *Session) Connect(rawurl string, req *url.Request) (*models.Response, error) {
+	return s.Request(http.MethodConnect, rawurl, req)
 }
 
-func (this *Session) Trace(rawurl string, req *url.Request) (*models.Response, error) {
-	return this.Request(http.MethodTrace, rawurl, req)
+// trace请求方式
+func (s *Session) Trace(rawurl string, req *url.Request) (*models.Response, error) {
+	return s.Request(http.MethodTrace, rawurl, req)
 }
 
-func (this *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+// 发送数据
+func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
 	var err error
 	var history []*models.Response
 
-	proxies := merge_setting(this.Proxies, req.Proxies).(string)
+	// 修复报错tls: CurvePreferences includes unsupported curve
+	s.transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: s.Verify,
+	}
+
+	// 设置代理
+	proxies := merge_setting(s.Proxies, req.Proxies).(string)
 	if proxies != "" {
 		u1, err := url2.Parse(proxies)
 		if err != nil {
 			return nil, err
 		}
-		this.transport.Proxy = http.ProxyURL(u1)
+		s.transport.Proxy = http.ProxyURL(u1)
 	}
 
-	verify := merge_setting(this.Verify, req.Verify).(bool)
-	this.transport.TLSClientConfig.InsecureSkipVerify = verify
+	// 是否验证证书
+	verify := merge_setting(s.Verify, req.Verify).(bool)
+	s.transport.TLSClientConfig.InsecureSkipVerify = verify
 
-	cert := merge_setting(this.Cert, req.Cert).([]string)
+	// 设置证书
+	cert := merge_setting(s.Cert, req.Cert).([]string)
 	if cert != nil {
 		var cert_byte []byte
 		certs, err := tls.LoadX509KeyPair(cert[0], cert[1])
@@ -316,72 +311,79 @@ func (this *Session) Send(preq *models.PrepareRequest, req *url.Request) (*model
 		if !ok {
 			return nil, errors.New("failed to parse root certificate")
 		}
-		this.transport.TLSClientConfig.RootCAs = certPool
+		s.transport.TLSClientConfig.RootCAs = certPool
 		fmt.Println(certs)
-		this.transport.TLSClientConfig.Certificates = []tls.Certificate{certs}
+		s.transport.TLSClientConfig.Certificates = []tls.Certificate{certs}
 	}
 
-	ja3String := merge_setting(this.Ja3, req.Ja3).(string)
+	// 设置JA3指纹信息
+	ja3String := merge_setting(s.Ja3, req.Ja3).(string)
 	if ja3String != "" && strings.HasPrefix(preq.Url, "https") {
 		browser := ja3.Browser{
 			JA3:       ja3String,
-			UserAgent: this.Headers.Get("User-Agent"),
+			UserAgent: s.Headers.Get("User-Agent"),
 		}
-		tr, err := ja3.NewJA3Transport(browser, proxies, this.transport.TLSClientConfig)
+		tr, err := ja3.NewJA3Transport(browser, proxies, s.transport.TLSClientConfig)
 		if err != nil {
 			return nil, err
 		}
-		this.client.Transport = tr
+		s.client.Transport = tr
 	}
 
+	// 设置超时时间
 	timeout := req.Timeout
 	if timeout != 0 {
-		this.client.Timeout = timeout
+		s.client.Timeout = timeout
 	}
+
+	// 是否自动转发
 	allowRedirect := req.AllowRedirects
 	if allowRedirect {
-		this.client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+		s.client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
 			if request != nil {
 				preq.Url = request.URL.String()
 				p := models.NewPrepareRequest()
 				c, _ := cookiejar.New(nil)
 				c.SetCookies(request.URL, request.Cookies())
 				p.Prepare(request.Method, request.URL.String(), nil, &request.Header, c, nil, nil, nil, nil)
-				r := this.buildResponse(request.Response, p, &url.Request{})
+				r := s.buildResponse(request.Response, p, &url.Request{})
 				history = append(history, r)
 			}
-			if len(via) > this.MaxRedirects {
-				return errors.New(fmt.Sprintf("redirects number gt %i", this.MaxRedirects))
+			if len(via) > s.MaxRedirects {
+				return errors.New(fmt.Sprintf("redirects number gt %i", s.MaxRedirects))
 			}
 			return nil
 		}
 	} else {
-		this.client.CheckRedirect = disableRedirect
+		s.client.CheckRedirect = disableRedirect
 	}
+
 	u, _ := url2.Parse(preq.Url)
+	// 设置有序请求头
 	if req.Headers != nil{
 		if (*req.Headers)[http.HeaderOrderKey] != nil {
 			(*preq.Headers)[http.HeaderOrderKey] = (*req.Headers)[http.HeaderOrderKey]
 		}
 	}
-	this.request = &http.Request{
+	s.request = &http.Request{
 		Method: preq.Method,
 		URL:    u,
 		Header: *preq.Headers,
 		Body:   preq.Body,
 	}
-	this.client.Jar = preq.Cookies
-	req.Headers = &this.request.Header
-	resp, err := this.client.Do(this.request)
+	s.client.Jar = preq.Cookies
+	req.Headers = &s.request.Header
+	resp, err := s.client.Do(s.request)
 	if err != nil {
 		return nil, err
 	}
-	response := this.buildResponse(resp, preq, req)
+	response := s.buildResponse(resp, preq, req)
 	response.History = history
 	return response, nil
 }
 
-func (this *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) *models.Response {
+// 构建response参数
+func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) *models.Response {
 	content, _ := ioutil.ReadAll(resp.Body)
 	encoding := resp.Header.Get("Content-Encoding")
 	DecompressBody(&content, encoding)
@@ -399,7 +401,7 @@ func (this *Session) buildResponse(resp *http.Response, preq *models.PrepareRequ
 	}
 	if resp.Cookies() != nil {
 		u, _ := url2.Parse(preq.Url)
-		this.Cookies.SetCookies(u, resp.Cookies())
+		s.Cookies.SetCookies(u, resp.Cookies())
 	}
 	return response
 }
