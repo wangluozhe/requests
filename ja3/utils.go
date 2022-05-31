@@ -3,7 +3,7 @@ package ja3
 import (
 	"crypto/sha256"
 	"fmt"
-	utls "gitlab.com/yawning/utls.git"
+	utls "github.com/Danny-Dasilva/utls"
 	"strconv"
 	"strings"
 )
@@ -36,12 +36,12 @@ func raiseExtensionError(info string) *errExtensionNotExist {
 }
 
 func (w *errExtensionNotExist) Error() string {
-	return fmt.Sprintf("Extension {{ %s }} is not Supported by CycleTLS please raise an issue", w.Context)
+	return fmt.Sprintf("Extension {{ %s }} is not Supported by requests please raise an issue", w.Context)
 }
 
 // StringToSpec creates a ClientHelloSpec based on a JA3 string
 func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
-	parsedUserAgent := parseUserAgent("chrome")
+	parsedUserAgent := parseUserAgent(userAgent)
 	extMap := genMap()
 	tokens := strings.Split(ja3, ",")
 
@@ -56,7 +56,6 @@ func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
 	if len(pointFormats) == 1 && pointFormats[0] == "" {
 		pointFormats = []string{}
 	}
-
 	// parse curves
 	var targetCurves []utls.CurveID
 	targetCurves = append(targetCurves, utls.CurveID(utls.GREASE_PLACEHOLDER)) //append grease for Chrome browsers
@@ -66,6 +65,9 @@ func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
 			return nil, err
 		}
 		targetCurves = append(targetCurves, utls.CurveID(cid))
+		// if cid != uint64(utls.CurveP521) {
+		// CurveP521 sometimes causes handshake errors
+		// }
 	}
 	extMap["10"] = &utls.SupportedCurvesExtension{Curves: targetCurves}
 
@@ -103,12 +105,17 @@ func StringToSpec(ja3 string, userAgent string) (*utls.ClientHelloSpec, error) {
 		if !ok {
 			return nil, raiseExtensionError(e)
 		}
-		//Optionally add Chrome Grease Extension
+		// //Optionally add Chrome Grease Extension
 		if e == "21" && parsedUserAgent == chrome {
 			exts = append(exts, &utls.UtlsGREASEExtension{})
 		}
 		exts = append(exts, te)
 	}
+	//Add this back in if user agent is chrome and no padding extension is given
+	// if parsedUserAgent == chrome {
+	// 	exts = append(exts, &utls.UtlsGREASEExtension{})
+	// 	exts = append(exts, &utls.UtlsPaddingExtension{GetPaddingLen: utls.BoringPaddingStyle})
+	// }
 	// build SSLVersion
 	// vid64, err := strconv.ParseUint(version, 10, 16)
 	// if err != nil {
@@ -168,8 +175,8 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 		"21": &utls.UtlsPaddingExtension{GetPaddingLen: utls.BoringPaddingStyle},
 		"22": &utls.GenericExtension{Id: 22}, // encrypt_then_mac
 		"23": &utls.UtlsExtendedMasterSecretExtension{},
-		"27": &utls.CompressCertificateExtension{
-			Algorithms: []utls.CertCompressionAlgo{utls.CertCompressionBrotli},
+		"27": &utls.FakeCertCompressionAlgsExtension{
+			Methods: []utls.CertCompressionAlgo{utls.CertCompressionBrotli},
 		},
 		"28": &utls.FakeRecordSizeLimitExtension{}, //Limit: 0x4001
 		"35": &utls.SessionTicketExtension{},
@@ -195,6 +202,11 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 		}},
 		"30032": &utls.GenericExtension{Id: 0x7550, Data: []byte{0}}, //FIXME
 		"13172": &utls.NPNExtension{},
+		"17513": &utls.ApplicationSettingsExtension{
+			SupportedALPNList: []string{
+				"h2",
+			},
+		},
 		"65281": &utls.RenegotiationInfoExtension{
 			Renegotiation: utls.RenegotiateOnceAsClient,
 		},

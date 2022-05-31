@@ -219,7 +219,8 @@ func (c *connectDialer) DialContext(ctx context.Context, network, address string
 	case "http/1.1":
 		return connectHTTP1(rawConn)
 	case "h2":
-		t := http2.Transport{}
+		//TODO: update this with correct navigator
+		t := http2.Transport{Navigator: "chrome"}
 		h2clientConn, err := t.NewClientConn(rawConn)
 		if err != nil {
 			_ = rawConn.Close()

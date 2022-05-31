@@ -12,8 +12,7 @@ import (
 	http2 "github.com/Danny-Dasilva/fhttp/http2"
 	"golang.org/x/net/proxy"
 
-	tls "gitlab.com/yawning/utls.git"
-	utls "gitlab.com/yawning/utls.git"
+	utls "github.com/Danny-Dasilva/utls"
 )
 
 var errProtocolNegotiated = errors.New("protocol negotiated")
@@ -23,7 +22,7 @@ type Browser struct {
 	UserAgent string
 }
 
-func NewJA3Transport(browser Browser, proxyURL string, config *tls.Config) (http.RoundTripper, error) {
+func NewJA3Transport(browser Browser, proxyURL string, config *utls.Config) (http.RoundTripper, error) {
 	if proxyURL != "" {
 		dialer, err := NewConnectDialer(proxyURL, browser.UserAgent)
 		if err != nil {
@@ -58,7 +57,7 @@ type JA3Transport struct {
 
 	JA3             string
 	UserAgent       string
-	TLSClientConfig *tls.Config
+	TLSClientConfig *utls.Config
 
 	cachedConnections map[string]net.Conn
 	cachedTransports  map[string]http.RoundTripper
@@ -125,9 +124,7 @@ func (rt *JA3Transport) dialTLS(ctx context.Context, network, addr string) (net.
 		return nil, err
 	}
 
-	rt.TLSClientConfig.ServerName = host
-	//conn := utls.UClient(rawConn, &utls.Config{ServerName: host}, // MinVersion:         tls.VersionTLS10,
-	conn := utls.UClient(rawConn, rt.TLSClientConfig, // MinVersion:         tls.VersionTLS10,
+	conn := utls.UClient(rawConn, &utls.Config{ServerName: host}, // MinVersion:         tls.VersionTLS10,
 		// MaxVersion:         tls.VersionTLS13,
 
 		utls.HelloCustom)
@@ -155,15 +152,12 @@ func (rt *JA3Transport) dialTLS(ctx context.Context, network, addr string) (net.
 	// of ALPN.
 	switch conn.ConnectionState().NegotiatedProtocol {
 	case http2.NextProtoTLS:
-		t2 := http2.Transport{DialTLS: rt.dialTLSHTTP2}
-		t2.Settings = []http2.Setting{
-			{ID: http2.SettingMaxConcurrentStreams, Val: 1000},
-			{ID: http2.SettingMaxFrameSize, Val: 16384},
-			{ID: http2.SettingMaxHeaderListSize, Val: 262144},
+		parsedUserAgent := parseUserAgent(rt.UserAgent)
+
+		t2 := http2.Transport{DialTLS: rt.dialTLSHTTP2,
+			PushHandler: &http2.DefaultPushHandler{},
+			Navigator:   parsedUserAgent,
 		}
-		t2.InitialWindowSize = 6291456
-		t2.HeaderTableSize = 65536
-		t2.PushHandler = &http2.DefaultPushHandler{}
 		rt.cachedTransports[addr] = &t2
 	default:
 		// Assume the remote peer is speaking HTTP 1.x + TLS.
@@ -178,7 +172,7 @@ func (rt *JA3Transport) dialTLS(ctx context.Context, network, addr string) (net.
 	return nil, errProtocolNegotiated
 }
 
-func (rt *JA3Transport) dialTLSHTTP2(network, addr string, _ *tls.Config) (net.Conn, error) {
+func (rt *JA3Transport) dialTLSHTTP2(network, addr string, _ *utls.Config) (net.Conn, error) {
 	return rt.dialTLS(context.Background(), network, addr)
 }
 
