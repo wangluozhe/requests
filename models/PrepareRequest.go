@@ -139,7 +139,7 @@ func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json 
 	}
 	if files != nil {
 		var byteBuffer *bytes.Buffer
-		if data != nil{
+		if data != nil {
 			for _, key := range data.Keys() {
 				files.AddField(key, data.Get(key))
 			}
@@ -193,7 +193,7 @@ func (pr *PrepareRequest) Prepare_auth(auth []string, rawurl string) error {
 		if err != nil {
 			return err
 		}
-		user := urls.User.String()
+		user := urls.User.Username()
 		if user != "" {
 			auth = append(auth, user)
 		}
@@ -203,7 +203,7 @@ func (pr *PrepareRequest) Prepare_auth(auth []string, rawurl string) error {
 		}
 	}
 	if auth != nil && len(auth) == 2 {
-		pr.Headers.Set("Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(strings.Join(auth, ":"))))
+		pr.Headers.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(strings.Join(auth, ":"))))
 	}
 	return nil
 }
