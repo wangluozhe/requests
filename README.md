@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.3-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.4-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
 
 requests支持以下新特性：
 
@@ -82,6 +82,20 @@ r, err = requests.Options("http://httpbin.org/get")
 ```
 
 都很不错吧，但这也仅是 requests 的冰山一角呢。
+
+
+
+## 设置代理
+
+requests设置代理也非常简单，只需给req.Proxies传入代理ip即可。
+
+```go
+req := url.NewRequest()
+req.Proxies = "http://127.0.0.1:32768"
+// 设置带账号密码的代理：req.Proxies = "http://username:password@ip:port"
+
+r, err := requests.Get("https://api.github.com/events", req)
+```
 
 
 
