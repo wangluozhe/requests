@@ -351,7 +351,8 @@ func main(){
     :authority: spidertools.cn
     :method: GET
     :path: /
-    :scheme: https
+    :scheme: https // 不会被加入到头部中
+    // accept: text/html // 不会被加入到头部中，因为被注释了
     accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
     accept-encoding: gzip, deflate, br
     accept-language: zh-CN,zh;q=0.9
@@ -740,6 +741,8 @@ fmt.Println(r.History)
 ```
 
 如果你使用的是GET、OPTIONS、POST、PUT、PATCH 或者 DELETE，那么你可以通过 `allow_redirects` 参数禁用重定向处理：
+
+`注：跳转链接请到headers中自行获取`
 
 ```go
 req := url.NewRequest()
