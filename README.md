@@ -23,7 +23,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版
 
 ```bash
-go get github.com/wangluozhe/requests@v1.0.3
+go get github.com/wangluozhe/requests@v1.0.4
 ```
 
 
