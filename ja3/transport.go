@@ -124,7 +124,7 @@ func (rt *JA3Transport) dialTLS(ctx context.Context, network, addr string) (net.
 		return nil, err
 	}
 
-	conn := utls.UClient(rawConn, &utls.Config{ServerName: host}, // MinVersion:         tls.VersionTLS10,
+	conn := utls.UClient(rawConn, &utls.Config{ServerName: host, InsecureSkipVerify: true}, // MinVersion:         tls.VersionTLS10,
 		// MaxVersion:         tls.VersionTLS13,
 
 		utls.HelloCustom)
@@ -152,12 +152,29 @@ func (rt *JA3Transport) dialTLS(ctx context.Context, network, addr string) (net.
 	// of ALPN.
 	switch conn.ConnectionState().NegotiatedProtocol {
 	case http2.NextProtoTLS:
+		// t2 := http2.Transport{DialTLS: rt.dialTLSHTTP2}
 		parsedUserAgent := parseUserAgent(rt.UserAgent)
 
 		t2 := http2.Transport{DialTLS: rt.dialTLSHTTP2,
 			PushHandler: &http2.DefaultPushHandler{},
 			Navigator:   parsedUserAgent,
 		}
+		//	t2.Settings = []http2.Setting{
+		//		{ID: http2.SettingMaxHeaderListSize, Val: 262144},
+		//		{ID: http2.SettingMaxConcurrentStreams, Val: 1000},
+		//
+		//	}
+		//// 	rTableSize:      "HEADER_TABLE_SIZE",
+		//// SettingEnablePush:           "ENABLE_PUSH",
+		//// SettingMaxConcurrentStreams: "MAX_CONCURRENT_STREAMS",
+		//// SettingInitialWindowSize:    "INITIAL_WINDOW_SIZE",
+		//// SettingMaxFrameSize:         "MAX_FRAME_SIZE",
+		//// SettingMaxHeaderListSize:    "MAX_HEADER_LIST_SIZE",
+		//
+		//	t2.InitialWindowSize = 6291456
+		//	t2.HeaderTableSize = 65536
+		//	// t2.PushHandler = &http2.DefaultPushHandler{}
+		//	// rt.cachedTransports[addr] = &t2
 		rt.cachedTransports[addr] = &t2
 	default:
 		// Assume the remote peer is speaking HTTP 1.x + TLS.
