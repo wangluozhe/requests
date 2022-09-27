@@ -131,6 +131,7 @@ func NewSession() *Session {
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: session.Verify,
 		},
+		DisableKeepAlives: true,
 	}
 	session.request = &http.Request{}
 	session.client = &http.Client{
