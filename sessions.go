@@ -278,15 +278,15 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	}
 
 	// 设置代理
-	//proxies := merge_setting(s.Proxies, req.Proxies.Domain+":"+req.Proxies.Port).(string)
-	proxies := merge_setting(s.Proxies, req.Proxies.Scheme+"://"+req.Proxies.User+":"+req.Proxies.Password+"@"+req.Proxies.Host+":"+req.Proxies.Port).(string)
-	if proxies != "" {
-		//u1, err := url2.Parse("http://127.0.0.1:8888")
-		u1, err := url2.Parse(proxies)
-		if req.Proxies.User != "" {
-			u1.User = url2.UserPassword(req.Proxies.User, req.Proxies.Password)
-		}
+	proxies := ""
+	if req.Proxies.User != "" {
+		proxies = merge_setting(s.Proxies, req.Proxies.Scheme+"://"+req.Proxies.User+":"+req.Proxies.Password+"@"+req.Proxies.Host+":"+req.Proxies.Port).(string)
+	} else {
+		proxies = merge_setting(s.Proxies, req.Proxies.Scheme+"://"+req.Proxies.Host+":"+req.Proxies.Port).(string)
+	}
 
+	if proxies != "" {
+		u1, err := url2.Parse(proxies)
 		if err != nil {
 			return nil, err
 		}
@@ -330,10 +330,6 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		browser := ja3.Browser{
 			JA3:       ja3String,
 			UserAgent: s.Headers.Get("User-Agent"),
-		}
-
-		if req.Proxies.User != "" {
-			proxies = merge_setting(s.Proxies, req.Proxies.Scheme+"://"+req.Proxies.User+":"+req.Proxies.Password+"@"+req.Proxies.Host+":"+req.Proxies.Port).(string)
 		}
 		tr, err := ja3.NewJA3Transport(browser, proxies, s.transport.TLSClientConfig)
 		if err != nil {
