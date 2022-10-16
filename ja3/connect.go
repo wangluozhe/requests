@@ -53,6 +53,7 @@ func NewConnectDialer(proxyURLStr string, UserAgent string) (proxy.ContextDialer
 	case "http":
 		if proxyURL.Port() == "" {
 			proxyURL.Host = net.JoinHostPort(proxyURL.Host, "80")
+
 		}
 	case "https":
 		if proxyURL.Port() == "" {

@@ -13,6 +13,20 @@ func NewRequest() *Request {
 	}
 }
 
+type Proxies struct {
+	Scheme   string
+	Host     string
+	Port     string
+	User     string
+	Password string
+}
+
+const (
+	PROXIES_SCHEME_HTTP   = "http"
+	PROXIES_SCHEME_HTTPS  = "https"
+	PROXIES_SCHEME_SOCKS5 = "socks5"
+)
+
 type Request struct {
 	Params         *Params
 	Headers        *http.Header
@@ -23,7 +37,7 @@ type Request struct {
 	Auth           []string
 	Timeout        time.Duration
 	AllowRedirects bool
-	Proxies        string
+	Proxies        Proxies
 	Verify         bool
 	Cert           []string
 	Ja3            string

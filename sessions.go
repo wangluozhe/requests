@@ -68,7 +68,7 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 			return merged_setting
 		}
 		for key, _ := range *requestd_setting {
-			merged_setting.Set(key,(*requestd_setting)[key][0])
+			merged_setting.Set(key, (*requestd_setting)[key][0])
 		}
 		return merged_setting
 	case []string:
@@ -278,14 +278,21 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	}
 
 	// 设置代理
-	proxies := merge_setting(s.Proxies, req.Proxies).(string)
+	//proxies := merge_setting(s.Proxies, req.Proxies.Domain+":"+req.Proxies.Port).(string)
+	proxies := merge_setting(s.Proxies, req.Proxies.Scheme+"://"+req.Proxies.User+":"+req.Proxies.Password+"@"+req.Proxies.Host+":"+req.Proxies.Port).(string)
 	if proxies != "" {
+		//u1, err := url2.Parse("http://127.0.0.1:8888")
 		u1, err := url2.Parse(proxies)
+		if req.Proxies.User != "" {
+			u1.User = url2.UserPassword(req.Proxies.User, req.Proxies.Password)
+		}
+
 		if err != nil {
 			return nil, err
 		}
 		s.transport.Proxy = http.ProxyURL(u1)
 	}
+	s.transport.DisableKeepAlives = true
 
 	// 是否验证证书
 	verify := merge_setting(s.Verify, req.Verify).(bool)
@@ -324,6 +331,10 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			JA3:       ja3String,
 			UserAgent: s.Headers.Get("User-Agent"),
 		}
+
+		if req.Proxies.User != "" {
+			proxies = merge_setting(s.Proxies, req.Proxies.Scheme+"://"+req.Proxies.User+":"+req.Proxies.Password+"@"+req.Proxies.Host+":"+req.Proxies.Port).(string)
+		}
 		tr, err := ja3.NewJA3Transport(browser, proxies, s.transport.TLSClientConfig)
 		if err != nil {
 			return nil, err
@@ -361,7 +372,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 	u, _ := url2.Parse(preq.Url)
 	// 设置有序请求头
-	if req.Headers != nil{
+	if req.Headers != nil {
 		if (*req.Headers)[http.HeaderOrderKey] != nil {
 			(*preq.Headers)[http.HeaderOrderKey] = (*req.Headers)[http.HeaderOrderKey]
 		}
