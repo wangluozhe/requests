@@ -9,6 +9,7 @@ import (
 	"github.com/Danny-Dasilva/fhttp"
 	"github.com/Danny-Dasilva/fhttp/cookiejar"
 	"github.com/wangluozhe/requests/url"
+	"github.com/wangluozhe/requests/utils"
 	"io"
 	"io/ioutil"
 	"strconv"
@@ -80,7 +81,7 @@ func (pr *PrepareRequest) Prepare_method(method string) error {
 // 预处理url
 func (pr *PrepareRequest) Prepare_url(rawurl string, params *url.Params) error {
 	rawurl = strings.TrimSpace(rawurl)
-	urls, err := url.Parse(rawurl)
+	urls, err := url.Parse(utils.EncodeURI(rawurl))
 	if err != nil {
 		return err
 	}
@@ -189,7 +190,7 @@ func (pr *PrepareRequest) Prepare_cookies(cookies *cookiejar.Jar) {
 // 预处理auth
 func (pr *PrepareRequest) Prepare_auth(auth []string, rawurl string) error {
 	if auth == nil {
-		urls, err := url.Parse(rawurl)
+		urls, err := url.Parse(utils.EncodeURI(rawurl))
 		if err != nil {
 			return err
 		}

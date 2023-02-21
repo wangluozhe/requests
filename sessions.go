@@ -15,6 +15,7 @@ import (
 	"github.com/wangluozhe/requests/ja3"
 	"github.com/wangluozhe/requests/models"
 	"github.com/wangluozhe/requests/url"
+	"github.com/wangluozhe/requests/utils"
 	"io/ioutil"
 	url2 "net/url"
 	"strings"
@@ -38,7 +39,7 @@ func default_headers() *http.Header {
 
 // 合并cookies
 func merge_cookies(rawurl string, cookieJar *cookiejar.Jar, cookie *cookiejar.Jar) {
-	urls, _ := url2.Parse(rawurl)
+	urls, _ := url2.Parse(utils.EncodeURI(rawurl))
 	cookieJar.SetCookies(urls, cookie.Cookies(urls))
 }
 
@@ -131,7 +132,7 @@ func NewSession() *Session {
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: session.Verify,
 		},
-		DisableKeepAlives: true,
+		DisableKeepAlives: false,	// 这里问题很严重
 	}
 	session.request = &http.Request{}
 	session.client = &http.Client{
@@ -359,7 +360,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		s.client.CheckRedirect = disableRedirect
 	}
 
-	u, _ := url2.Parse(preq.Url)
+	u, _ := url2.Parse(utils.EncodeURI(preq.Url))
 	// 设置有序请求头
 	if req.Headers != nil {
 		if (*req.Headers)[http.HeaderOrderKey] != nil {
@@ -385,6 +386,9 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 // 构建response参数
 func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) *models.Response {
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
 	content, _ := ioutil.ReadAll(resp.Body)
 	encoding := resp.Header.Get("Content-Encoding")
 	DecompressBody(&content, encoding)
