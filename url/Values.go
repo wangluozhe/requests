@@ -12,7 +12,7 @@ func ParseValues(params string) *Values {
 		return p
 	}
 	for _, l := range strings.Split(params, "&") {
-		value := strings.Split(l, "=")
+		value := strings.SplitN(l, "=", 2)
 		if len(value) == 2{
 			p.Add(value[0], value[1])
 		}
