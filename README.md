@@ -1,12 +1,13 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.15.6-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.0.42-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.20-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.1.0-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
 
 requests支持以下新特性：
 
 1. 支持http2，默认以http2进行连接，连接失败后会进行退化而进行http1.1连接
 2. 支持JA3指纹修改
 3. 支持http2+JA3指纹
-4. 支持在使用代理的基础上修改JA3指纹
+4. 支持修改TLS指纹
+5. 支持修改http2指纹
 
 **此模块参考于Python的[requests模块](https://github.com/psf/requests/tree/main/requests)**
 
@@ -23,7 +24,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版
 
 ```bash
-go get github.com/wangluozhe/requests@v1.0.42
+go get github.com/wangluozhe/requests@v1.1.0
 ```
 
 
@@ -878,9 +879,240 @@ if err != nil {
 }
 fmt.Println(r.Text)
 
-{"ja3_hash":"b32309a26951912be7dba376398abc3b", "ja3": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36"}
+{"ja3_hash":"b32309a26951912be7dba376398abc3b", "transport": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36"}
 ```
 
+## TLS指纹
+
+requests支持你随意修改TLS指纹信息
+```go
+package main
+
+import (
+	"fmt"
+	http "github.com/wangluozhe/fhttp"
+	"github.com/wangluozhe/requests"
+	"github.com/wangluozhe/requests/transport"
+	"github.com/wangluozhe/requests/url"
+)
+
+func main() {
+	req := url.NewRequest()
+	headers := &http.Header{
+		"User-Agent":                []string{"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/112.0"},
+		"accept":                    []string{"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"},
+		"accept-language":           []string{"zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2"},
+		"accept-encoding":           []string{"gzip, deflate, br"},
+		"upgrade-insecure-requests": []string{"1"},
+		"sec-fetch-dest":            []string{"document"},
+		"sec-fetch-mode":            []string{"navigate"},
+		"sec-fetch-site":            []string{"none"},
+		"sec-fetch-user":            []string{"?1"},
+		"te":                        []string{"trailers"},
+		http.PHeaderOrderKey: []string{
+			":method",
+			":path",
+			":authority",
+			":scheme",
+		},
+		http.HeaderOrderKey: []string{
+			"user-agent",
+			"accept",
+			"accept-language",
+			"accept-encoding",
+			"upgrade-insecure-requests",
+			"sec-fetch-dest",
+			"sec-fetch-mode",
+			"sec-fetch-site",
+			"sec-fetch-user",
+			"te",
+		},
+	}
+	req.Headers = headers
+	req.Ja3 = "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0"
+	es := &transport.Extensions{
+		SupportedSignatureAlgorithms: []string{
+			"ECDSAWithP256AndSHA256",
+			"ECDSAWithP384AndSHA384",
+			"ECDSAWithP521AndSHA512",
+			"PSSWithSHA256",
+			"PSSWithSHA384",
+			"PSSWithSHA512",
+			"PKCS1WithSHA256",
+			"PKCS1WithSHA384",
+			"PKCS1WithSHA512",
+			"ECDSAWithSHA1",
+			"PKCS1WithSHA1",
+		},
+		//CertCompressionAlgo: []string{
+		//	"brotli",
+		//},
+		RecordSizeLimit: 4001,
+		DelegatedCredentials: []string{
+			"ECDSAWithP256AndSHA256",
+			"ECDSAWithP384AndSHA384",
+			"ECDSAWithP521AndSHA512",
+			"ECDSAWithSHA1",
+		},
+		SupportedVersions: []string{
+			"1.3",
+			"1.2",
+		},
+		PSKKeyExchangeModes: []string{
+			"PskModeDHE",
+		},
+		KeyShareCurves: []string{
+			"X25519",
+			"P256",
+		},
+	}
+	tes := transport.ToTLSExtensions(es)
+	req.TLSExtensions = tes
+	r, err := requests.Get("https://tls.peet.ws/api/all", req)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(r.Request.Headers)
+	fmt.Println("url:", r.Url)
+	fmt.Println("headers:", r.Headers)
+	fmt.Println("text:", r.Text)
+}
+
+```
+
+## HTTP2指纹
+
+requests支持HTTP2指纹信息的修改
+
+```go
+package main
+
+import (
+	"fmt"
+	http "github.com/wangluozhe/fhttp"
+	"github.com/wangluozhe/requests"
+	"github.com/wangluozhe/requests/transport"
+	"github.com/wangluozhe/requests/url"
+)
+
+func main() {
+	req := url.NewRequest()
+	headers := &http.Header{
+		"User-Agent":                []string{"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/112.0"},
+		"accept":                    []string{"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"},
+		"accept-language":           []string{"zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2"},
+		"accept-encoding":           []string{"gzip, deflate, br"},
+		"upgrade-insecure-requests": []string{"1"},
+		"sec-fetch-dest":            []string{"document"},
+		"sec-fetch-mode":            []string{"navigate"},
+		"sec-fetch-site":            []string{"none"},
+		"sec-fetch-user":            []string{"?1"},
+		"te":                        []string{"trailers"},
+		http.PHeaderOrderKey: []string{
+			":method",
+			":path",
+			":authority",
+			":scheme",
+		},
+		http.HeaderOrderKey: []string{
+			"user-agent",
+			"accept",
+			"accept-language",
+			"accept-encoding",
+			"upgrade-insecure-requests",
+			"sec-fetch-dest",
+			"sec-fetch-mode",
+			"sec-fetch-site",
+			"sec-fetch-user",
+			"te",
+		},
+	}
+	req.Headers = headers
+	req.Ja3 = "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0"
+	h2s := &transport.H2Settings{
+		Settings: map[string]int{
+			"HEADER_TABLE_SIZE": 65536,
+			//"ENABLE_PUSH":            0,
+			//"MAX_HEADER_LIST_SIZE":   262144,
+			//"MAX_CONCURRENT_STREAMS": 1000,
+			"INITIAL_WINDOW_SIZE": 131072,
+			"MAX_FRAME_SIZE":      16384,
+		},
+		SettingsOrder: []string{
+			"HEADER_TABLE_SIZE",
+			"INITIAL_WINDOW_SIZE",
+			"MAX_FRAME_SIZE",
+		},
+		ConnectionFlow: 12517377,
+		HeaderPriority: map[string]interface{}{
+			"weight":    42,
+			"streamDep": 13,
+			"exclusive": false,
+		},
+		PriorityFrames: []map[string]interface{}{
+			{
+				"streamID": 3,
+				"priorityParam": map[string]interface{}{
+					"weight":    201,
+					"streamDep": 0,
+					"exclusive": false,
+				},
+			},
+			{
+				"streamID": 5,
+				"priorityParam": map[string]interface{}{
+					"weight":    101,
+					"streamDep": 0,
+					"exclusive": false,
+				},
+			},
+			{
+				"streamID": 7,
+				"priorityParam": map[string]interface{}{
+					"weight":    1,
+					"streamDep": 0,
+					"exclusive": false,
+				},
+			},
+			{
+				"streamID": 9,
+				"priorityParam": map[string]interface{}{
+					"weight":    1,
+					"streamDep": 7,
+					"exclusive": false,
+				},
+			},
+			{
+				"streamID": 11,
+				"priorityParam": map[string]interface{}{
+					"weight":    1,
+					"streamDep": 3,
+					"exclusive": false,
+				},
+			},
+			{
+				"streamID": 13,
+				"priorityParam": map[string]interface{}{
+					"weight":    241,
+					"streamDep": 0,
+					"exclusive": false,
+				},
+			},
+		},
+	}
+	h2ss := transport.ToHTTP2Settings(h2s)
+	req.HTTP2Settings = h2ss
+	r, err := requests.Get("https://tls.peet.ws/api/all", req)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(r.Request.Headers)
+	fmt.Println("url:", r.Url)
+	fmt.Println("headers:", r.Headers)
+	fmt.Println("text:", r.Text)
+}
+
+```
 
 
 # 编码

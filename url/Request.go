@@ -1,8 +1,10 @@
 package url
 
 import (
-	"github.com/Danny-Dasilva/fhttp"
-	"github.com/Danny-Dasilva/fhttp/cookiejar"
+	"github.com/wangluozhe/fhttp"
+	"github.com/wangluozhe/fhttp/cookiejar"
+	"github.com/wangluozhe/fhttp/http2"
+	ja3 "github.com/wangluozhe/requests/transport"
 	"time"
 )
 
@@ -27,4 +29,6 @@ type Request struct {
 	Verify         bool
 	Cert           []string
 	Ja3            string
+	TLSExtensions  *ja3.TLSExtensions
+	HTTP2Settings  *http2.HTTP2Settings
 }

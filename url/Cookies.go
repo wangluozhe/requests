@@ -2,8 +2,8 @@ package url
 
 import (
 	"errors"
-	http "github.com/Danny-Dasilva/fhttp"
-	"github.com/Danny-Dasilva/fhttp/cookiejar"
+	http "github.com/wangluozhe/fhttp"
+	"github.com/wangluozhe/fhttp/cookiejar"
 	"net/url"
 	"strings"
 )

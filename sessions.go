@@ -8,15 +8,17 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/Danny-Dasilva/fhttp"
-	"github.com/Danny-Dasilva/fhttp/cookiejar"
-	tls "github.com/Danny-Dasilva/utls"
 	"github.com/andybalholm/brotli"
-	"github.com/wangluozhe/requests/ja3"
+	tls "github.com/refraction-networking/utls"
+	"github.com/wangluozhe/fhttp"
+	"github.com/wangluozhe/fhttp/cookiejar"
+	"github.com/wangluozhe/fhttp/http2"
 	"github.com/wangluozhe/requests/models"
+	ja3 "github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
 	"github.com/wangluozhe/requests/utils"
 	"io/ioutil"
+	"log"
 	url2 "net/url"
 	"strings"
 	"time"
@@ -69,6 +71,9 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 			return merged_setting
 		}
 		for key, _ := range *requestd_setting {
+			if key == http.PHeaderOrderKey || key == http.HeaderOrderKey {
+				continue
+			}
 			merged_setting.Set(key, (*requestd_setting)[key][0])
 		}
 		return merged_setting
@@ -99,6 +104,24 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 		}
 		requestd_setting := request_setting.(string)
 		if requestd_setting == "" {
+			return merged_setting
+		}
+	case *ja3.TLSExtensions:
+		merged_setting := session_setting.(*ja3.TLSExtensions)
+		if merged_setting == nil {
+			return request_setting
+		}
+		requestd_setting := request_setting.(*ja3.TLSExtensions)
+		if requestd_setting == nil {
+			return merged_setting
+		}
+	case *http2.HTTP2Settings:
+		merged_setting := session_setting.(*http2.HTTP2Settings)
+		if merged_setting == nil {
+			return request_setting
+		}
+		requestd_setting := request_setting.(*http2.HTTP2Settings)
+		if requestd_setting == nil {
 			return merged_setting
 		}
 	}
@@ -132,7 +155,7 @@ func NewSession() *Session {
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: session.Verify,
 		},
-		DisableKeepAlives: false,	// 这里问题很严重
+		DisableKeepAlives: false, // 这里问题很严重
 	}
 	session.request = &http.Request{}
 	session.client = &http.Client{
@@ -151,18 +174,20 @@ func DefaultSession() *Session {
 
 // Session结构体
 type Session struct {
-	Params       *url.Params
-	Headers      *http.Header
-	Cookies      *cookiejar.Jar
-	Auth         []string
-	Proxies      string
-	Verify       bool
-	Cert         []string
-	Ja3          string
-	MaxRedirects int
-	transport    *http.Transport
-	request      *http.Request
-	client       *http.Client
+	Params        *url.Params
+	Headers       *http.Header
+	Cookies       *cookiejar.Jar
+	Auth          []string
+	Proxies       string
+	Verify        bool
+	Cert          []string
+	Ja3           string
+	MaxRedirects  int
+	TLSExtensions *ja3.TLSExtensions
+	HTTP2Settings *http2.HTTP2Settings
+	transport     *http.Transport
+	request       *http.Request
+	client        *http.Client
 }
 
 // 预请求处理
@@ -273,19 +298,36 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	var err error
 	var history []*models.Response
 
-	// 修复报错tls: CurvePreferences includes unsupported curve
-	s.transport.TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: s.Verify,
-	}
-
 	// 设置代理
 	proxies := merge_setting(s.Proxies, req.Proxies).(string)
-	if proxies != "" {
-		u1, err := url2.Parse(proxies)
+
+	// 设置JA3指纹信息
+	ja3String := merge_setting(s.Ja3, req.Ja3).(string)
+	if ja3String != "" && strings.HasPrefix(preq.Url, "https") {
+		browser := ja3.Browser{
+			JA3:       ja3String,
+			UserAgent: s.Headers.Get("User-Agent"),
+		}
+
+		// 自定义TLS指纹信息
+		tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*ja3.TLSExtensions)
+		http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http2.HTTP2Settings)
+
+		options := &ja3.Options{
+			Browser:       browser,
+			TLSExtensions: tlsExtensions,
+			HTTP2Settings: http2Settings,
+		}
+
+		if proxies != "" {
+			options.Proxy = proxies
+		}
+
+		client, err := ja3.NewClient(options)
 		if err != nil {
 			return nil, err
 		}
-		s.transport.Proxy = http.ProxyURL(u1)
+		s.client = &client
 	}
 
 	// 是否验证证书
@@ -318,20 +360,6 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		s.transport.TLSClientConfig.Certificates = []tls.Certificate{certs}
 	}
 
-	// 设置JA3指纹信息
-	ja3String := merge_setting(s.Ja3, req.Ja3).(string)
-	if ja3String != "" && strings.HasPrefix(preq.Url, "https") {
-		browser := ja3.Browser{
-			JA3:       ja3String,
-			UserAgent: s.Headers.Get("User-Agent"),
-		}
-		tr, err := ja3.NewJA3Transport(browser, proxies, s.transport.TLSClientConfig)
-		if err != nil {
-			return nil, err
-		}
-		s.client.Transport = tr
-	}
-
 	// 设置超时时间
 	timeout := req.Timeout
 	if timeout != 0 {
@@ -360,19 +388,21 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		s.client.CheckRedirect = disableRedirect
 	}
 
-	u, _ := url2.Parse(utils.EncodeURI(preq.Url))
 	// 设置有序请求头
 	if req.Headers != nil {
 		if (*req.Headers)[http.HeaderOrderKey] != nil {
 			(*preq.Headers)[http.HeaderOrderKey] = (*req.Headers)[http.HeaderOrderKey]
 		}
+		if (*req.Headers)[http.PHeaderOrderKey] != nil {
+			(*preq.Headers)[http.PHeaderOrderKey] = (*req.Headers)[http.PHeaderOrderKey]
+		}
 	}
-	s.request = &http.Request{
-		Method: preq.Method,
-		URL:    u,
-		Header: *preq.Headers,
-		Body:   preq.Body,
+
+	s.request, err = http.NewRequest(preq.Method, preq.Url, preq.Body)
+	if err != nil {
+		log.Fatalln(err)
 	}
+	s.request.Header = *preq.Headers
 	s.client.Jar = preq.Cookies
 	req.Headers = &s.request.Header
 	resp, err := s.client.Do(s.request)

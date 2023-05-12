@@ -6,8 +6,8 @@ import (
 	jsonp "encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Danny-Dasilva/fhttp"
-	"github.com/Danny-Dasilva/fhttp/cookiejar"
+	"github.com/wangluozhe/fhttp"
+	"github.com/wangluozhe/fhttp/cookiejar"
 	"github.com/wangluozhe/requests/url"
 	"github.com/wangluozhe/requests/utils"
 	"io"
@@ -39,7 +39,7 @@ type PrepareRequest struct {
 	Url     string
 	Headers *http.Header
 	Cookies *cookiejar.Jar
-	Body    io.ReadCloser
+	Body    io.Reader
 }
 
 // 预处理所有数据
@@ -140,7 +140,7 @@ func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json 
 	}
 	if files != nil {
 		var byteBuffer *bytes.Buffer
-		if data != nil{
+		if data != nil {
 			for _, key := range data.Keys() {
 				files.AddField(key, data.Get(key))
 			}
@@ -162,7 +162,7 @@ func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json 
 	if content_type != "" && pr.Headers.Get("Content-Type") == "" {
 		pr.Headers.Set("Content-Type", content_type)
 	}
-	pr.Body = ioutil.NopCloser(strings.NewReader(body))
+	pr.Body = strings.NewReader(body)
 	return nil
 }
 
@@ -204,7 +204,7 @@ func (pr *PrepareRequest) Prepare_auth(auth []string, rawurl string) error {
 		}
 	}
 	if auth != nil && len(auth) == 2 {
-		pr.Headers.Set("Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(strings.Join(auth, ":"))))
+		pr.Headers.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(strings.Join(auth, ":"))))
 	}
 	return nil
 }
