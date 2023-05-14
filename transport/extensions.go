@@ -61,13 +61,13 @@ type Extensions struct {
 	//Ed25519 SignatureScheme = 0x0807
 	//PKCS1WithSHA1 SignatureScheme = 0x0201
 	//ECDSAWithSHA1 SignatureScheme = 0x0203
-	SupportedSignatureAlgorithms []string
+	SupportedSignatureAlgorithms []string `json:"SupportedSignatureAlgorithms"`
 	//CertCompressionZlib   CertCompressionAlgo = 0x0001
 	//CertCompressionBrotli CertCompressionAlgo = 0x0002
 	//CertCompressionZstd   CertCompressionAlgo = 0x0003
-	CertCompressionAlgo []string
+	CertCompressionAlgo []string `json:"CertCompressionAlgo"`
 	// Limit: 0x4001
-	RecordSizeLimit int
+	RecordSizeLimit int `json:"RecordSizeLimit"`
 	//PKCS1WithSHA256 SignatureScheme = 0x0401
 	//PKCS1WithSHA384 SignatureScheme = 0x0501
 	//PKCS1WithSHA512 SignatureScheme = 0x0601
@@ -80,23 +80,23 @@ type Extensions struct {
 	//Ed25519 SignatureScheme = 0x0807
 	//PKCS1WithSHA1 SignatureScheme = 0x0201
 	//ECDSAWithSHA1 SignatureScheme = 0x0203
-	DelegatedCredentials []string
+	DelegatedCredentials []string `json:"DelegatedCredentials"`
 	//GREASE_PLACEHOLDER = 0x0a0a
 	//VersionTLS10 = 0x0301
 	//VersionTLS11 = 0x0302
 	//VersionTLS12 = 0x0303
 	//VersionTLS13 = 0x0304
 	//VersionSSL30 = 0x0300
-	SupportedVersions []string
+	SupportedVersions []string `json:"SupportedVersions"`
 	//PskModePlain uint8 = pskModePlain
 	//PskModeDHE   uint8 = pskModeDHE
-	PSKKeyExchangeModes []string
+	PSKKeyExchangeModes []string `json:"PSKKeyExchangeModes"`
 	//GREASE_PLACEHOLDER = 0x0a0a
 	//CurveP256 CurveID = 23
 	//CurveP384 CurveID = 24
 	//CurveP521 CurveID = 25
 	//X25519    CurveID = 29
-	KeyShareCurves []string
+	KeyShareCurves []string `json:"KeyShareCurves"`
 }
 
 type TLSExtensions struct {

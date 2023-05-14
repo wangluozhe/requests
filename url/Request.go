@@ -22,6 +22,7 @@ type Request struct {
 	Data           *Values
 	Files          *Files
 	Json           map[string]interface{}
+	Body           string
 	Auth           []string
 	Timeout        time.Duration
 	AllowRedirects bool

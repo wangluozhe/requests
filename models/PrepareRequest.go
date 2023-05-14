@@ -43,7 +43,7 @@ type PrepareRequest struct {
 }
 
 // 预处理所有数据
-func (pr *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]interface{}, auth []string) error {
+func (pr *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]interface{}, body string, auth []string) error {
 	err := pr.Prepare_method(method)
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func (pr *PrepareRequest) Prepare(method, url string, params *url.Params, header
 		return err
 	}
 	pr.Prepare_cookies(cookies)
-	err = pr.Prepare_body(data, files, json)
+	err = pr.Prepare_body(data, files, json, body)
 	if err != nil {
 		return err
 	}
@@ -126,10 +126,17 @@ func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
 }
 
 // 预处理body
-func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}) error {
+func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}, bodys string) error {
 	var body string
 	var content_type string
 	var err error
+	if bodys != "" {
+		if pr.Headers.Get("content-type") == "" {
+			pr.Headers.Set("content-type", "text/plain")
+		}
+		pr.Body = strings.NewReader(bodys)
+		return nil
+	}
 	if data == nil && json != nil {
 		content_type = "application/json"
 		json_byte, err := jsonp.Marshal(json)
