@@ -323,11 +323,13 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			options.Proxy = proxies
 		}
 
-		client, err := ja3.NewClient(options)
-		if err != nil {
-			return nil, err
+		if s.client == nil {
+			client, err := ja3.NewClient(options)
+			if err != nil {
+				return nil, err
+			}
+			s.client = &client
 		}
-		s.client = &client
 	}
 
 	// 是否验证证书
