@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"crypto/md5"
 	"crypto/x509"
 	"encoding/binary"
 	"errors"
@@ -188,6 +189,7 @@ type Session struct {
 	transport     *http.Transport
 	request       *http.Request
 	client        *http.Client
+	ja3Hash       [16]byte
 }
 
 // 预请求处理
@@ -323,12 +325,15 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			options.Proxy = proxies
 		}
 
-		if s.client == nil {
+		//指纹变更或者client为空才需要重建client
+		currentHash := md5.Sum([]byte(browser.JA3 + browser.UserAgent))
+		if s.ja3Hash != currentHash || s.client == nil {
 			client, err := ja3.NewClient(options)
 			if err != nil {
 				return nil, err
 			}
 			s.client = &client
+			s.ja3Hash = currentHash
 		}
 	}
 
