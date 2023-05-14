@@ -213,6 +213,7 @@ func (s *Session) Prepare_request(request *models.Request) (*models.PrepareReque
 		request.Data,
 		request.Files,
 		request.Json,
+		request.Body,
 		auth,
 	)
 	if err != nil {
@@ -235,6 +236,7 @@ func (s *Session) Request(method, rawurl string, request *url.Request) (*models.
 		Data:    request.Data,
 		Files:   request.Files,
 		Json:    request.Json,
+		Body:    request.Body,
 		Auth:    request.Auth,
 	}
 	preq, err := s.Prepare_request(req)
@@ -375,7 +377,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 				p := models.NewPrepareRequest()
 				c, _ := cookiejar.New(nil)
 				c.SetCookies(request.URL, request.Cookies())
-				p.Prepare(request.Method, request.URL.String(), nil, &request.Header, c, nil, nil, nil, nil)
+				p.Prepare(request.Method, request.URL.String(), nil, &request.Header, c, nil, nil, nil, "", nil)
 				r := s.buildResponse(request.Response, p, &url.Request{})
 				history = append(history, r)
 			}

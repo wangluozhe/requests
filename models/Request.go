@@ -14,6 +14,7 @@ type Request struct {
 	Cookies *cookiejar.Jar
 	Data    *url.Values
 	Files   *url.Files
+	Body    string
 	Json    map[string]interface{}
 	Auth    []string
 }
@@ -29,6 +30,7 @@ func (req *Request) Prepare() *PrepareRequest {
 		req.Data,
 		req.Files,
 		req.Json,
+		req.Body,
 		req.Auth,
 	)
 	return p

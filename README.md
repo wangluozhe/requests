@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.20-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.1.0-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.20-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.1.1-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
 
 requests支持以下新特性：
 
@@ -24,7 +24,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版
 
 ```bash
-go get github.com/wangluozhe/requests@v1.1.0
+go get github.com/wangluozhe/requests@v1.1.1
 ```
 
 
@@ -569,6 +569,28 @@ fmt.Println(r.Text)
 	"name": "value"
 }
 ...
+```
+
+## POST发送text/plain文本
+requests支持post传输普通文本信息，默认content-type=text/plain，也可以自定义content-type。
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/wangluozhe/requests"
+	"github.com/wangluozhe/requests/url"
+)
+
+func main() {
+	req := url.NewRequest()
+	headers := url.NewHeaders()
+	headers.Set("User-Agent", "123")
+	req.Headers = headers
+	req.Body = "testdata"
+	r, _ := requests.Post("https://httpbin.org/post", req)
+	fmt.Println(r.Text)
+}
 ```
 
 

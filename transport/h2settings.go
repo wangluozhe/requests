@@ -20,17 +20,17 @@ type H2Settings struct {
 	//INITIAL_WINDOW_SIZE
 	//MAX_FRAME_SIZE
 	//MAX_HEADER_LIST_SIZE
-	Settings map[string]int
+	Settings map[string]int `json:"Settings"`
 	//HEADER_TABLE_SIZE
 	//ENABLE_PUSH
 	//MAX_CONCURRENT_STREAMS
 	//INITIAL_WINDOW_SIZE
 	//MAX_FRAME_SIZE
 	//MAX_HEADER_LIST_SIZE
-	SettingsOrder  []string
+	SettingsOrder  []string `json:"SettingsOrder"`
 	ConnectionFlow int
-	HeaderPriority map[string]interface{}
-	PriorityFrames []map[string]interface{}
+	HeaderPriority map[string]interface{}   `json:"HeaderPriority"`
+	PriorityFrames []map[string]interface{} `json:"PriorityFrames"`
 }
 
 func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http2.HTTP2Settings) {
@@ -64,38 +64,75 @@ func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http2.HTTP2Settings
 		http2Settings.ConnectionFlow = h2Settings.ConnectionFlow
 	}
 	if h2Settings.HeaderPriority != nil {
-		weight := h2Settings.HeaderPriority["weight"]
+		var weight int
+		var streamDep int
+		w := h2Settings.HeaderPriority["weight"]
+		switch w.(type) {
+		case int:
+			weight = w.(int)
+		case float64:
+			weight = int(w.(float64))
+		}
+		s := h2Settings.HeaderPriority["weight"]
+		switch s.(type) {
+		case int:
+			streamDep = s.(int)
+		case float64:
+			streamDep = int(s.(float64))
+		}
 		var priorityParam *http2.PriorityParam
-		if weight == nil {
+		if w == nil {
 			priorityParam = &http2.PriorityParam{
-				StreamDep: uint32(h2Settings.HeaderPriority["streamDep"].(int)),
+				StreamDep: uint32(streamDep),
 				Exclusive: h2Settings.HeaderPriority["exclusive"].(bool),
 			}
 		} else {
 			priorityParam = &http2.PriorityParam{
-				StreamDep: uint32(h2Settings.HeaderPriority["streamDep"].(int)),
+				StreamDep: uint32(streamDep),
 				Exclusive: h2Settings.HeaderPriority["exclusive"].(bool),
-				Weight:    uint8(weight.(int) - 1),
+				Weight:    uint8(weight - 1),
 			}
 		}
 		http2Settings.HeaderPriority = priorityParam
 	}
 	if h2Settings.PriorityFrames != nil {
 		for _, frame := range h2Settings.PriorityFrames {
-			streamID := frame["streamID"].(int)
+			var weight int
+			var streamDep int
+			var streamID int
 			priorityParamSource := frame["priorityParam"].(map[string]interface{})
-			weight := priorityParamSource["weight"]
+			w := priorityParamSource["weight"]
+			switch w.(type) {
+			case int:
+				weight = w.(int)
+			case float64:
+				weight = int(w.(float64))
+			}
+			s := priorityParamSource["streamDep"]
+			switch s.(type) {
+			case int:
+				streamDep = s.(int)
+			case float64:
+				streamDep = int(s.(float64))
+			}
+			sid := frame["streamID"]
+			switch sid.(type) {
+			case int:
+				streamID = sid.(int)
+			case float64:
+				streamID = int(sid.(float64))
+			}
 			var priorityParam http2.PriorityParam
-			if weight == nil {
+			if w == nil {
 				priorityParam = http2.PriorityParam{
-					StreamDep: uint32(priorityParamSource["streamDep"].(int)),
+					StreamDep: uint32(streamDep),
 					Exclusive: priorityParamSource["exclusive"].(bool),
 				}
 			} else {
 				priorityParam = http2.PriorityParam{
-					StreamDep: uint32(priorityParamSource["streamDep"].(int)),
+					StreamDep: uint32(streamDep),
 					Exclusive: priorityParamSource["exclusive"].(bool),
-					Weight:    uint8(weight.(int) - 1),
+					Weight:    uint8(weight - 1),
 				}
 			}
 			http2Settings.PriorityFrames = append(http2Settings.PriorityFrames, http2.PriorityFrame{
