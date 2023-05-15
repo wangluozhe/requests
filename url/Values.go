@@ -1,7 +1,7 @@
 package url
 
 import (
-	"github.com/wangluozhe/requests/utils"
+	"github.com/jqqjj/requests/utils"
 	"strings"
 )
 
@@ -13,7 +13,7 @@ func ParseValues(params string) *Values {
 	}
 	for _, l := range strings.Split(params, "&") {
 		value := strings.SplitN(l, "=", 2)
-		if len(value) == 2{
+		if len(value) == 2 {
 			p.Add(value[0], value[1])
 		}
 	}
@@ -44,7 +44,7 @@ type Values struct {
 // 设置Values参数
 func (v *Values) Set(key, value string) {
 	p := map[string][]string{
-		key: []string{value,},
+		key: []string{value},
 	}
 	index := SearchStrings(v.indexKey, key)
 	if len(v.indexKey) == 0 || index == -1 {

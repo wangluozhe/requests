@@ -1,7 +1,7 @@
 package url
 
 import (
-	"github.com/wangluozhe/requests/utils"
+	"github.com/jqqjj/requests/utils"
 	"strings"
 )
 
