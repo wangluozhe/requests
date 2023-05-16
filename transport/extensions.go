@@ -7,18 +7,53 @@ import (
 )
 
 var supportedSignatureAlgorithmsExtensions = map[string]utls.SignatureScheme{
-	"PKCS1WithSHA256":        utls.PKCS1WithSHA256,
-	"PKCS1WithSHA384":        utls.PKCS1WithSHA384,
-	"PKCS1WithSHA512":        utls.PKCS1WithSHA512,
-	"PSSWithSHA256":          utls.PSSWithSHA256,
-	"PSSWithSHA384":          utls.PSSWithSHA384,
-	"PSSWithSHA512":          utls.PSSWithSHA512,
-	"ECDSAWithP256AndSHA256": utls.ECDSAWithP256AndSHA256,
-	"ECDSAWithP384AndSHA384": utls.ECDSAWithP384AndSHA384,
-	"ECDSAWithP521AndSHA512": utls.ECDSAWithP521AndSHA512,
-	"Ed25519":                utls.Ed25519,
-	"PKCS1WithSHA1":          utls.PKCS1WithSHA1,
-	"ECDSAWithSHA1":          utls.ECDSAWithSHA1,
+	"PKCS1WithSHA256":                     utls.PKCS1WithSHA256,
+	"PKCS1WithSHA384":                     utls.PKCS1WithSHA384,
+	"PKCS1WithSHA512":                     utls.PKCS1WithSHA512,
+	"PSSWithSHA256":                       utls.PSSWithSHA256,
+	"PSSWithSHA384":                       utls.PSSWithSHA384,
+	"PSSWithSHA512":                       utls.PSSWithSHA512,
+	"ECDSAWithP256AndSHA256":              utls.ECDSAWithP256AndSHA256,
+	"ECDSAWithP384AndSHA384":              utls.ECDSAWithP384AndSHA384,
+	"ECDSAWithP521AndSHA512":              utls.ECDSAWithP521AndSHA512,
+	"Ed25519":                             utls.Ed25519,
+	"PKCS1WithSHA1":                       utls.PKCS1WithSHA1,
+	"ECDSAWithSHA1":                       utls.ECDSAWithSHA1,
+	"rsa_pkcs1_sha1":                      utls.SignatureScheme(0x0201),
+	"Reserved for backward compatibility": utls.SignatureScheme(0x0202),
+	"ecdsa_sha1":                          utls.SignatureScheme(0x0203),
+	"rsa_pkcs1_sha256":                    utls.SignatureScheme(0x0401),
+	"ecdsa_secp256r1_sha256":              utls.SignatureScheme(0x0403),
+	"rsa_pkcs1_sha256_legacy":             utls.SignatureScheme(0x0420),
+	"rsa_pkcs1_sha384":                    utls.SignatureScheme(0x0501),
+	"ecdsa_secp384r1_sha384":              utls.SignatureScheme(0x0503),
+	"rsa_pkcs1_sha384_legacy":             utls.SignatureScheme(0x0520),
+	"rsa_pkcs1_sha512":                    utls.SignatureScheme(0x0601),
+	"ecdsa_secp521r1_sha512":              utls.SignatureScheme(0x0603),
+	"rsa_pkcs1_sha512_legacy":             utls.SignatureScheme(0x0620),
+	"eccsi_sha256":                        utls.SignatureScheme(0x0704),
+	"iso_ibs1":                            utls.SignatureScheme(0x0705),
+	"iso_ibs2":                            utls.SignatureScheme(0x0706),
+	"iso_chinese_ibs":                     utls.SignatureScheme(0x0707),
+	"sm2sig_sm3":                          utls.SignatureScheme(0x0708),
+	"gostr34102012_256a":                  utls.SignatureScheme(0x0709),
+	"gostr34102012_256b":                  utls.SignatureScheme(0x070A),
+	"gostr34102012_256c":                  utls.SignatureScheme(0x070B),
+	"gostr34102012_256d":                  utls.SignatureScheme(0x070C),
+	"gostr34102012_512a":                  utls.SignatureScheme(0x070D),
+	"gostr34102012_512b":                  utls.SignatureScheme(0x070E),
+	"gostr34102012_512c":                  utls.SignatureScheme(0x070F),
+	"rsa_pss_rsae_sha256":                 utls.SignatureScheme(0x0804),
+	"rsa_pss_rsae_sha384":                 utls.SignatureScheme(0x0805),
+	"rsa_pss_rsae_sha512":                 utls.SignatureScheme(0x0806),
+	"ed25519":                             utls.SignatureScheme(0x0807),
+	"ed448":                               utls.SignatureScheme(0x0808),
+	"rsa_pss_pss_sha256":                  utls.SignatureScheme(0x0809),
+	"rsa_pss_pss_sha384":                  utls.SignatureScheme(0x080A),
+	"rsa_pss_pss_sha512":                  utls.SignatureScheme(0x080B),
+	"ecdsa_brainpoolP256r1tls13_sha256":   utls.SignatureScheme(0x081A),
+	"ecdsa_brainpoolP384r1tls13_sha384":   utls.SignatureScheme(0x081B),
+	"ecdsa_brainpoolP512r1tls13_sha512":   utls.SignatureScheme(0x081C),
 }
 
 var certCompressionAlgoExtensions = map[string]utls.CertCompressionAlgo{
@@ -91,6 +126,19 @@ type Extensions struct {
 	//PskModePlain uint8 = pskModePlain
 	//PskModeDHE   uint8 = pskModeDHE
 	PSKKeyExchangeModes []string `json:"PSKKeyExchangeModes"`
+	//PKCS1WithSHA256 SignatureScheme = 0x0401
+	//PKCS1WithSHA384 SignatureScheme = 0x0501
+	//PKCS1WithSHA512 SignatureScheme = 0x0601
+	//PSSWithSHA256 SignatureScheme = 0x0804
+	//PSSWithSHA384 SignatureScheme = 0x0805
+	//PSSWithSHA512 SignatureScheme = 0x0806
+	//ECDSAWithP256AndSHA256 SignatureScheme = 0x0403
+	//ECDSAWithP384AndSHA384 SignatureScheme = 0x0503
+	//ECDSAWithP521AndSHA512 SignatureScheme = 0x0603
+	//Ed25519 SignatureScheme = 0x0807
+	//PKCS1WithSHA1 SignatureScheme = 0x0201
+	//ECDSAWithSHA1 SignatureScheme = 0x0203
+	SignatureAlgorithmsCert []string `json:"SignatureAlgorithmsCert"`
 	//GREASE_PLACEHOLDER = 0x0a0a
 	//CurveP256 CurveID = 23
 	//CurveP384 CurveID = 24
@@ -106,6 +154,7 @@ type TLSExtensions struct {
 	DelegatedCredentials         *utls.DelegatedCredentialsExtension
 	SupportedVersions            *utls.SupportedVersionsExtension
 	PSKKeyExchangeModes          *utls.PSKKeyExchangeModesExtension
+	SignatureAlgorithmsCert      *utls.SignatureAlgorithmsCertExtension
 	KeyShareCurves               *utls.KeyShareExtension
 }
 
@@ -117,7 +166,14 @@ func ToTLSExtensions(e *Extensions) (extensions *TLSExtensions) {
 	if e.SupportedSignatureAlgorithms != nil {
 		extensions.SupportedSignatureAlgorithms = &utls.SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
 		for _, s := range e.SupportedSignatureAlgorithms {
-			extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms = append(extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms, supportedSignatureAlgorithmsExtensions[s])
+			var signature_algorithms utls.SignatureScheme
+			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
+				signature_algorithms = val
+			} else {
+				hexInt, _ := strconv.ParseInt(s, 0, 0)
+				signature_algorithms = utls.SignatureScheme(hexInt)
+			}
+			extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms = append(extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms, signature_algorithms)
 		}
 	}
 	if e.CertCompressionAlgo != nil {
@@ -134,7 +190,15 @@ func ToTLSExtensions(e *Extensions) (extensions *TLSExtensions) {
 	if e.DelegatedCredentials != nil {
 		extensions.DelegatedCredentials = &utls.DelegatedCredentialsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
 		for _, s := range e.DelegatedCredentials {
-			extensions.DelegatedCredentials.SupportedSignatureAlgorithms = append(extensions.DelegatedCredentials.SupportedSignatureAlgorithms, supportedSignatureAlgorithmsExtensions[s])
+			var signature_algorithms utls.SignatureScheme
+			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
+				signature_algorithms = val
+			} else {
+				hexStr := fmt.Sprintf("0x%v", e.RecordSizeLimit)
+				hexInt, _ := strconv.ParseInt(hexStr, 0, 0)
+				signature_algorithms = utls.SignatureScheme(hexInt)
+			}
+			extensions.DelegatedCredentials.SupportedSignatureAlgorithms = append(extensions.DelegatedCredentials.SupportedSignatureAlgorithms, signature_algorithms)
 		}
 	}
 	if e.SupportedVersions != nil {
@@ -147,6 +211,20 @@ func ToTLSExtensions(e *Extensions) (extensions *TLSExtensions) {
 		extensions.PSKKeyExchangeModes = &utls.PSKKeyExchangeModesExtension{Modes: []uint8{}}
 		for _, s := range e.PSKKeyExchangeModes {
 			extensions.PSKKeyExchangeModes.Modes = append(extensions.PSKKeyExchangeModes.Modes, pskKeyExchangeModesExtensions[s])
+		}
+	}
+	if e.SignatureAlgorithmsCert != nil {
+		extensions.SignatureAlgorithmsCert = &utls.SignatureAlgorithmsCertExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
+		for _, s := range e.SignatureAlgorithmsCert {
+			var signature_algorithms_cert utls.SignatureScheme
+			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
+				signature_algorithms_cert = val
+			} else {
+				hexStr := fmt.Sprintf("0x%v", e.RecordSizeLimit)
+				hexInt, _ := strconv.ParseInt(hexStr, 0, 0)
+				signature_algorithms_cert = utls.SignatureScheme(hexInt)
+			}
+			extensions.SignatureAlgorithmsCert.SupportedSignatureAlgorithms = append(extensions.SignatureAlgorithmsCert.SupportedSignatureAlgorithms, signature_algorithms_cert)
 		}
 	}
 	if e.KeyShareCurves != nil {

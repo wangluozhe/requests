@@ -95,6 +95,9 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 		if ext.PSKKeyExchangeModes != nil {
 			extMap["45"] = ext.PSKKeyExchangeModes
 		}
+		if ext.SignatureAlgorithmsCert != nil {
+			extMap["50"] = ext.SignatureAlgorithmsCert
+		}
 		if ext.KeyShareCurves != nil {
 			extMap["51"] = ext.KeyShareCurves
 		}
@@ -207,7 +210,21 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 			utls.PskModeDHE,
 		}},
 		"49": &utls.GenericExtension{Id: 49}, // post_handshake_auth
-		"50": &utls.GenericExtension{Id: 50}, // signature_algorithms_cert
+		"50": &utls.SignatureAlgorithmsCertExtension{
+			SupportedSignatureAlgorithms: []utls.SignatureScheme{
+				utls.ECDSAWithP256AndSHA256,
+				utls.ECDSAWithP384AndSHA384,
+				utls.ECDSAWithP521AndSHA512,
+				utls.PSSWithSHA256,
+				utls.PSSWithSHA384,
+				utls.PSSWithSHA512,
+				utls.PKCS1WithSHA256,
+				utls.PKCS1WithSHA384,
+				utls.PKCS1WithSHA512,
+				utls.ECDSAWithSHA1,
+				utls.PKCS1WithSHA1,
+			},
+		}, // signature_algorithms_cert
 		"51": &utls.KeyShareExtension{KeyShares: []utls.KeyShare{
 			{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}},
 			{Group: utls.X25519},
