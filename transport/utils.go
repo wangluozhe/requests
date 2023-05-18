@@ -28,6 +28,9 @@ func parseUserAgent(userAgent string) string {
 // StringToSpec creates a ClientHelloSpec based on a JA3 string
 func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, forceHTTP1 bool) (*utls.ClientHelloSpec, error) {
 	parsedUserAgent := parseUserAgent(userAgent)
+	if tlsExtensions == nil {
+		tlsExtensions = &TLSExtensions{}
+	}
 	ext := tlsExtensions
 	extMap := genMap()
 	tokens := strings.Split(ja3, ",")
