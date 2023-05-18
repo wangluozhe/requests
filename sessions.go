@@ -302,6 +302,13 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 	// 设置代理
 	proxies := merge_setting(s.Proxies, req.Proxies).(string)
+	if proxies != "" {
+		u1, err := url2.Parse(proxies)
+		if err != nil {
+			return nil, err
+		}
+		s.transport.Proxy = http.ProxyURL(u1)
+	}
 
 	// 设置JA3指纹信息
 	ja3String := merge_setting(s.Ja3, req.Ja3).(string)

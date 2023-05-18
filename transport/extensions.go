@@ -145,6 +145,8 @@ type Extensions struct {
 	//CurveP521 CurveID = 25
 	//X25519    CurveID = 29
 	KeyShareCurves []string `json:"KeyShareCurves"`
+	//default is false, default is used grease, if not used grease the NotUsedGREASE param is true
+	NotUsedGREASE bool `json:"NotUsedGREASE"`
 }
 
 type TLSExtensions struct {
@@ -156,6 +158,7 @@ type TLSExtensions struct {
 	PSKKeyExchangeModes          *utls.PSKKeyExchangeModesExtension
 	SignatureAlgorithmsCert      *utls.SignatureAlgorithmsCertExtension
 	KeyShareCurves               *utls.KeyShareExtension
+	NotUsedGREASE                bool
 }
 
 func ToTLSExtensions(e *Extensions) (extensions *TLSExtensions) {
@@ -232,6 +235,9 @@ func ToTLSExtensions(e *Extensions) (extensions *TLSExtensions) {
 		for _, s := range e.KeyShareCurves {
 			extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, keyShareCurvesExtensions[s])
 		}
+	}
+	if e.NotUsedGREASE != false {
+		extensions.NotUsedGREASE = e.NotUsedGREASE
 	}
 	return extensions
 }

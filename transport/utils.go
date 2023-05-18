@@ -45,7 +45,7 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	}
 	// parse curves
 	var targetCurves []utls.CurveID
-	if parsedUserAgent == chrome {
+	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
 		targetCurves = append(targetCurves, utls.CurveID(utls.GREASE_PLACEHOLDER)) //append grease for Chrome browsers
 	}
 	for _, c := range curves {
@@ -113,7 +113,7 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	// build extenions list
 	var exts []utls.TLSExtension
 	//Optionally Add Chrome Grease Extension
-	if parsedUserAgent == chrome {
+	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
 		exts = append(exts, &utls.UtlsGREASEExtension{})
 	}
 	for _, e := range extensions {
@@ -122,7 +122,7 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 			return nil, raiseExtensionError(e)
 		}
 		// //Optionally add Chrome Grease Extension
-		if e == "21" && parsedUserAgent == chrome {
+		if e == "21" && parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
 			exts = append(exts, &utls.UtlsGREASEExtension{})
 		}
 		exts = append(exts, te)
@@ -131,7 +131,7 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	// build CipherSuites
 	var suites []uint16
 	//Optionally Add Chrome Grease Extension
-	if parsedUserAgent == chrome {
+	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
 		suites = append(suites, utls.GREASE_PLACEHOLDER)
 	}
 	for _, c := range ciphers {
