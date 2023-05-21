@@ -104,6 +104,10 @@ func request(requestParamsChar *C.char) *C.char {
 		req.Ja3 = requestParams.Ja3
 	}
 
+	if requestParams.PseudoHeaderOrder != nil {
+		(*req.Headers)[http.HeaderOrderKey] = requestParams.PseudoHeaderOrder
+	}
+
 	if requestParams.TLSExtensions != "" {
 		tlsExtensions := &ja3.Extensions{}
 		err = json.Unmarshal([]byte(requestParams.TLSExtensions), tlsExtensions)

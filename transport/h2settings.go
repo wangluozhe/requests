@@ -73,7 +73,7 @@ func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http2.HTTP2Settings
 		case float64:
 			weight = int(w.(float64))
 		}
-		s := h2Settings.HeaderPriority["weight"]
+		s := h2Settings.HeaderPriority["streamDep"]
 		switch s.(type) {
 		case int:
 			streamDep = s.(int)
