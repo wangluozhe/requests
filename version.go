@@ -2,6 +2,6 @@ package requests
 
 const (
 	NAME       = "golang-requests" // 名称
-	VERSION    = "1.1.12"          // 当前版本
+	VERSION    = "1.1.13"          // 当前版本
 	USER_AGENT = NAME + VERSION    // UA
 )

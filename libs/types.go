@@ -5,6 +5,7 @@ type RequestParams struct {
 	Url               string                 `json:"Url"`
 	Params            map[string]string      `json:"Params"`
 	Headers           map[string]string      `json:"Headers"`
+	HeadersOrder      []string               `json:"HeadersOrder"`
 	Cookies           map[string]string      `json:"Cookies"`
 	Data              map[string]string      `json:"Data"`
 	Json              map[string]interface{} `json:"Json"`

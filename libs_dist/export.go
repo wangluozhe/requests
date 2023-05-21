@@ -50,6 +50,9 @@ func request(requestParamsChar *C.char) *C.char {
 			headers.Set(key, value)
 		}
 		req.Headers = headers
+		if requestParams.HeadersOrder != nil {
+			(*req.Headers)[http.HeaderOrderKey] = requestParams.HeadersOrder
+		}
 	}
 
 	if requestParams.Cookies != nil {
