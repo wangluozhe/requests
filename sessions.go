@@ -4,19 +4,20 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"crypto/md5"
 	"crypto/x509"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/andybalholm/brotli"
+	"github.com/jqqjj/requests/models"
+	ja3 "github.com/jqqjj/requests/transport"
+	"github.com/jqqjj/requests/url"
+	"github.com/jqqjj/requests/utils"
 	tls "github.com/refraction-networking/utls"
 	"github.com/wangluozhe/fhttp"
 	"github.com/wangluozhe/fhttp/cookiejar"
 	"github.com/wangluozhe/fhttp/http2"
-	"github.com/wangluozhe/requests/models"
-	ja3 "github.com/wangluozhe/requests/transport"
-	"github.com/wangluozhe/requests/url"
-	"github.com/wangluozhe/requests/utils"
 	"io/ioutil"
 	"log"
 	url2 "net/url"
@@ -188,6 +189,7 @@ type Session struct {
 	transport     *http.Transport
 	request       *http.Request
 	client        *http.Client
+	ja3Hash       [16]byte
 }
 
 // 预请求处理
@@ -332,11 +334,16 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			options.Proxy = proxies
 		}
 
-		client, err := ja3.NewClient(options)
-		if err != nil {
-			return nil, err
+		//指纹变更或者client为空才需要重建client
+		currentHash := md5.Sum([]byte(browser.JA3 + browser.UserAgent))
+		if s.ja3Hash != currentHash || s.client == nil {
+			client, err := ja3.NewClient(options)
+			if err != nil {
+				return nil, err
+			}
+			s.client = &client
+			s.ja3Hash = currentHash
 		}
-		s.client = &client
 	}
 
 	// 是否验证证书

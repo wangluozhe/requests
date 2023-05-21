@@ -6,10 +6,10 @@ import (
 	jsonp "encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jqqjj/requests/url"
+	"github.com/jqqjj/requests/utils"
 	"github.com/wangluozhe/fhttp"
 	"github.com/wangluozhe/fhttp/cookiejar"
-	"github.com/wangluozhe/requests/url"
-	"github.com/wangluozhe/requests/utils"
 	"io"
 	"io/ioutil"
 	"strconv"
@@ -165,7 +165,7 @@ func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json 
 		content_type = "application/x-www-form-urlencoded"
 		body = data.Encode()
 	}
-	pr.prepare_content_length(body)
+	//pr.prepare_content_length(body)
 	if content_type != "" && pr.Headers.Get("Content-Type") == "" {
 		pr.Headers.Set("Content-Type", content_type)
 	}

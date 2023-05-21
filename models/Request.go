@@ -1,9 +1,9 @@
 package models
 
 import (
+	"github.com/jqqjj/requests/url"
 	"github.com/wangluozhe/fhttp"
 	"github.com/wangluozhe/fhttp/cookiejar"
-	"github.com/wangluozhe/requests/url"
 )
 
 type Request struct {
