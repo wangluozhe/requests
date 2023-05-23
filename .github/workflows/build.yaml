@@ -17,10 +17,6 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y build-essential
     - name: Build shared library for amd64
       run: cd libs_dist && chmod +x * && bash build_amd64_so.sh
-    - name: Build shared library for arm64
-      run: cd libs_dist &&  chmod +x * && bash build_arm64_so.sh
-    - name: Build shared library for x86
-      run: cd libs_dist && chmod +x * && bash build_x86_so.sh
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with:
