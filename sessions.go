@@ -326,6 +326,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			Browser:       browser,
 			TLSExtensions: tlsExtensions,
 			HTTP2Settings: http2Settings,
+			ForceHTTP1:    req.ForceHTTP1,
 		}
 
 		if proxies != "" {

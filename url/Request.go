@@ -30,6 +30,7 @@ type Request struct {
 	Verify         bool
 	Cert           []string
 	Ja3            string
+	ForceHTTP1     bool
 	TLSExtensions  *ja3.TLSExtensions
 	HTTP2Settings  *http2.HTTP2Settings
 }

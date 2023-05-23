@@ -8,9 +8,9 @@ import (
 
 // 初始化Headers结构体
 func NewHeaders() *http.Header {
-	return &http.Header{
-		http.PHeaderOrderKey: {":method", ":authority", ":scheme", ":path"},
-	}
+	headers := &http.Header{}
+	(*headers)[http.PHeaderOrderKey] = (*headers)[http.PHeaderOrderKey]
+	return headers
 }
 
 // 解析Headers字符串为结构体

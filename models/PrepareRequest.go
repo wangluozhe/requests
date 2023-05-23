@@ -165,7 +165,7 @@ func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json 
 		content_type = "application/x-www-form-urlencoded"
 		body = data.Encode()
 	}
-	pr.prepare_content_length(body)
+	//pr.prepare_content_length(body) // 禁用预处理body大小，防止dll无法正常访问
 	if content_type != "" && pr.Headers.Get("Content-Type") == "" {
 		pr.Headers.Set("Content-Type", content_type)
 	}
