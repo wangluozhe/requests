@@ -16,7 +16,7 @@ jobs:
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -y build-essential
     - name: Build shared library for amd64
-      run: cd libs_dist && ./build_amd64_so.sh
+      run: cd libs_dist && chmod +x * &&./build_amd64_so.sh
     - name: Build shared library for arm64
       run: cd libs_dist && ./build_arm64_so.sh
     - name: Build shared library for x86
