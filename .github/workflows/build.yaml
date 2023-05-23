@@ -1,0 +1,29 @@
+name: Build
+on:
+  release:
+    types: [created] # 表示在创建新的 Release 时触发
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Go 1.20.4
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.20.4
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y build-essential
+    - name: Build shared library for amd64
+      run: cd libs_dist && ./build_amd64_so.sh
+    - name: Build shared library for arm64
+      run: cd libs_dist && ./build_arm64_so.sh
+    - name: Build shared library for x86
+      run: cd libs_dist && ./build_x86_so.sh
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: libs
+        path: |
+          libs_dist/*.so
