@@ -16,16 +16,28 @@ func SearchStrings(str []string, substr string) int {
 }
 
 // 解析params字符串为Params结构体
-func ParseParams(params string) *Params {
+func ParseParams(params interface{}) *Params {
 	p := NewParams()
-	if params == "" {
-		return p
-	}
-	for _, l := range strings.Split(params, "&") {
-		value := strings.SplitN(l, "=", 2)
-		if len(value) == 2 {
-			p.Add(value[0], value[1])
+	switch params.(type) {
+	case string:
+		if params == "" {
+			return p
 		}
+		for _, l := range strings.Split(params.(string), "&") {
+			value := strings.SplitN(l, "=", 2)
+			if len(value) == 2 {
+				p.Add(value[0], value[1])
+			}
+		}
+	case map[string]interface{}:
+		//paramsValues := parseMapToStrings(params.(map[string]interface{}))
+		//for _, s := range paramsValues {
+		//	for s2, i := range s {
+		//
+		//	}
+		//}
+	default:
+		panic("interface{} type is not a string or map[string]interface{}.")
 	}
 	return p
 }

@@ -27,8 +27,8 @@ type H2Settings struct {
 	//INITIAL_WINDOW_SIZE
 	//MAX_FRAME_SIZE
 	//MAX_HEADER_LIST_SIZE
-	SettingsOrder  []string `json:"SettingsOrder"`
-	ConnectionFlow int
+	SettingsOrder  []string                 `json:"SettingsOrder"`
+	ConnectionFlow int                      `json:"ConnectionFlow"`
 	HeaderPriority map[string]interface{}   `json:"HeaderPriority"`
 	PriorityFrames []map[string]interface{} `json:"PriorityFrames"`
 }

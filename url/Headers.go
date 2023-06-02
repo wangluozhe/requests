@@ -9,7 +9,7 @@ import (
 // 初始化Headers结构体
 func NewHeaders() *http.Header {
 	headers := &http.Header{}
-	(*headers)[http.PHeaderOrderKey] = (*headers)[http.PHeaderOrderKey]
+	(*headers)[http.PHeaderOrderKey] = []string{":method", ":authority", ":scheme", ":path"}
 	return headers
 }
 

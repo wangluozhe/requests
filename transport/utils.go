@@ -50,6 +50,22 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	var targetCurves []utls.CurveID
 	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
 		targetCurves = append(targetCurves, utls.CurveID(utls.GREASE_PLACEHOLDER)) //append grease for Chrome browsers
+		if supportedVersionsExt, ok := extMap["43"]; ok {
+			if supportedVersions, ok := supportedVersionsExt.(*utls.SupportedVersionsExtension); ok {
+				supportedVersions.Versions = append([]uint16{utls.GREASE_PLACEHOLDER}, supportedVersions.Versions...)
+			}
+		}
+		if keyShareExt, ok := extMap["51"]; ok {
+			if keyShare, ok := keyShareExt.(*utls.KeyShareExtension); ok {
+				keyShare.KeyShares = append([]utls.KeyShare{{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}}}, keyShare.KeyShares...)
+			}
+		}
+	} else {
+		if keyShareExt, ok := extMap["51"]; ok {
+			if keyShare, ok := keyShareExt.(*utls.KeyShareExtension); ok {
+				keyShare.KeyShares = append(keyShare.KeyShares, utls.KeyShare{Group: utls.CurveP256})
+			}
+		}
 	}
 	for _, c := range curves {
 		cid, err := strconv.ParseUint(c, 10, 16)
@@ -202,11 +218,8 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 		"35": &utls.SessionTicketExtension{},
 		//"41": &utls.GenericExtension{Id: 41}, //FIXME pre_shared_key, Currently not supported 41 extension
 		"43": &utls.SupportedVersionsExtension{Versions: []uint16{
-			utls.GREASE_PLACEHOLDER,
 			utls.VersionTLS13,
 			utls.VersionTLS12,
-			utls.VersionTLS11,
-			utls.VersionTLS10,
 		}},
 		"44": &utls.CookieExtension{},
 		"45": &utls.PSKKeyExchangeModesExtension{Modes: []uint8{
@@ -229,7 +242,6 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 			},
 		}, // signature_algorithms_cert
 		"51": &utls.KeyShareExtension{KeyShares: []utls.KeyShare{
-			{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}},
 			{Group: utls.X25519},
 
 			// {Group: utls.CurveP384}, known bug missing correct extensions for handshake

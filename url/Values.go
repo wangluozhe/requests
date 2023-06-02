@@ -13,7 +13,7 @@ func ParseValues(params string) *Values {
 	}
 	for _, l := range strings.Split(params, "&") {
 		value := strings.SplitN(l, "=", 2)
-		if len(value) == 2{
+		if len(value) == 2 {
 			p.Add(value[0], value[1])
 		}
 	}
@@ -37,56 +37,52 @@ func NewData() *Values {
 
 // Values结构体
 type Values struct {
-	values   []map[string][]string
+	values   map[string][]string
 	indexKey []string
 }
 
 // 设置Values参数
 func (v *Values) Set(key, value string) {
-	p := map[string][]string{
-		key: []string{value,},
+	if v.values == nil {
+		v.values = make(map[string][]string)
+	}
+	v.values[key] = []string{
+		value,
 	}
 	index := SearchStrings(v.indexKey, key)
-	if len(v.indexKey) == 0 || index == -1 {
-		v.values = append(v.values, p)
+	if index == -1 {
 		v.indexKey = append(v.indexKey, key)
-	} else {
-		v.values[index] = p
 	}
 }
 
 // 获取Values参数值
 func (v *Values) Get(key string) string {
-	if len(v.values) != 0 {
-		index := SearchStrings(v.indexKey, key)
-		if index != -1 {
-			return v.values[index][key][0]
-		}
-		return ""
+	if _, ok := v.values[key]; ok {
+		return v.values[key][0]
 	}
 	return ""
 }
 
 // 添加Values参数
-func (v *Values) Add(key, value string) bool {
+func (v *Values) Add(key, value string) {
 	index := SearchStrings(v.indexKey, key)
-	if len(v.indexKey) == 0 || index == -1 {
+	if index == -1 {
 		v.Set(key, value)
 	} else {
-		v.values[index][key] = append(v.values[index][key], value)
+		v.values[key] = append(v.values[key], value)
 	}
-	return true
+	return
 }
 
 // 删除Values参数
-func (v *Values) Del(key string) bool {
+func (v *Values) Del(key string) {
 	index := SearchStrings(v.indexKey, key)
-	if len(v.indexKey) == 0 || index == -1 {
-		return false
+	if index == -1 {
+		return
 	}
-	v.values = append(v.values[:index], v.values[index+1:]...)
+	delete(v.values, key)
 	v.indexKey = append(v.indexKey[:index], v.indexKey[index+1:]...)
-	return true
+	return
 }
 
 // 获取Values的所有Key
@@ -97,11 +93,16 @@ func (v *Values) Keys() []string {
 // Values结构体转字符串
 func (v *Values) Encode() string {
 	text := []string{}
-	for index, key := range v.indexKey {
-		item := v.values[index][key]
+	for _, key := range v.indexKey {
+		item := v.values[key]
 		for _, value := range item {
 			text = append(text, utils.EncodeURIComponent(key)+"="+utils.EncodeURIComponent(value))
 		}
 	}
 	return strings.Join(text, "&")
+}
+
+// Values结构体返回values
+func (v *Values) Values() map[string][]string {
+	return v.values
 }
