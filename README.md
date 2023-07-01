@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.20-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.1.14-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.20-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.1.15-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
 
 requests支持以下新特性：
 
@@ -11,6 +11,10 @@ requests支持以下新特性：
 
 **此模块参考于Python的[requests模块](https://github.com/psf/requests/tree/main/requests)**
 
+
+## 加入微信群聊
+如果你想跟更多志同道合的人一起学习，那么加入群聊来吧！
+![微信群聊](./imgs/wechat_group.jpg)
 
 
 ## 下载requests库
@@ -24,7 +28,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版
 
 ```bash
-go get github.com/wangluozhe/requests@v1.1.14
+go get github.com/wangluozhe/requests@v1.1.15
 ```
 
 
@@ -112,6 +116,44 @@ r, err := requests.Get("http://httpbin.org/get",&url.Request{Params: params})
 if err != nil {
 	fmt.Println(err)
 }
+```
+
+或者：
+
+```golang
+// map[string]type，type = string|int|float64|interface{}|[]string|[]int|[]float64|[]interface{}
+req := url.NewRequest()
+//params := map[string]string{
+//	"page":  "1",
+//	"limit": "20",
+//	"skip":  "5",
+//}
+//params := map[string]int{
+//	"page":  1,
+//	"limit": 20,
+//	"skip":  5,
+//}
+//params := map[string][]string{
+//	"page":  []string{"1", "2"},
+//	"limit": []string{"20"},
+//	"skip":  []string{"5"},
+//}
+//params := map[string][]int{
+//	"page":  []int{1, 2},
+//	"limit": []int{20},
+//	"skip":  []int{5},
+//}
+params := map[string]interface{}{
+    "page":  []interface{}{"1", 2},
+    "limit": []string{"20"},
+    "skip":  []int{5},
+}
+req.Params = url.ParseParams(params)
+r, err := requests.Get("https://httpbin.org/get", req)
+if err != nil {
+    fmt.Println(err)
+}
+fmt.Println(r.Text)
 ```
 
 或者：
@@ -278,6 +320,33 @@ req.Headers = headers
 
 r, err := requests.Get(rawurl, req)
 ```
+或者
+```go
+rawurl := "https://api.github.com/some/endpoint"
+req := url.NewRequest()
+req.Headers = url.ParseHeaders(map[string]interface{}{
+    ":authority":                "spidertools.cn",
+    ":method":                   "GET",
+    ":path":                     "/",
+    ":scheme":                   "https",
+    "accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "accept-encoding":           "gzip, deflate, br",
+    "accept-language":           "zh-CN,zh;q=0.9",
+    "cache-control":             "no-cache",
+    "cookie":                    "_ga=GA1.1.630251354.1645893020; Hm_lvt_def79de877408c7bd826e49b694147bc=1647245863,1647936048,1648296630; Hm_lpvt_def79de877408c7bd826e49b694147bc=1648296630",
+    "pragma":                    "no-cache",
+    "sec-ch-ua":                 "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"98\", \"Google Chrome\";v=\"98\"",
+    "sec-ch-ua-mobile":          "?0",
+    "sec-ch-ua-platform":        "\"Windows\"",
+    "sec-fetch-dest":            "document",
+    "sec-fetch-mode":            "navigate",
+    "sec-fetch-site":            "same-origin",
+    "sec-fetch-user":            "?1",
+    "upgrade-insecure-requests": "1",
+    "user-agent":                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36",
+}) // 注意：此方式生成的headers是无序的，因为map是无序的。
+r, err := requests.Get(rawurl, req)
+```
 
 注意: 定制 header 的优先级低于某些特定的信息源，例如：
 
@@ -412,6 +481,13 @@ fmt.Println(r.Text)
 
 ```go
 req := url.NewRequest()
+// 跟url.ParseParams同一用法，只是名称不同而已。
+// data := map[string]interface{}{
+//    "page":  []interface{}{"1", 2},
+//    "limit": []string{"20"},
+//    "skip":  []int{5},
+// }
+// req.Data = url.ParseData(data)
 req.Data = url.ParseData("key1=value1&key2=value2")
 r, err := requests.Post("http://www.baidu.com",req)
 if err != nil {
@@ -718,13 +794,30 @@ import (
 func main() {
 	rawUrl := "http://httpbin.org/cookies"
 	req := url.NewRequest()
-	req.Cookies = url.ParseCookies(rawUrl,"_ga=GA1.1.630251354.1645893020; Hm_lvt_def79de877408c7bd826e49b694147bc=1647245863,1647936048,1648296630; Hm_lpvt_def79de877408c7bd826e49b694147bc=1648301329")
+	//cookies := map[string]string{
+	//	"name":     "zhangsan",
+	//	"age":      "10",
+	//	"language": "en",
+	//}
+	//cookies := map[string]int{
+	//	"age":   20,
+	//	"page":  2,
+	//	"limit": 10,
+	//}
+	cookies := map[string]interface{}{
+		"Hm_lpvt_def79de877408c7bd826e49b694147bc":     1648301329,
+		"Hm_lvt_def79de877408c7bd826e49b694147bc":      "1647245863,1647936048,1648296630",
+		"_ga": "GA1.1.630251354.1645893020",
+	}
+	req.Cookies = url.ParseCookies(rawUrl, cookies)
+	//req.Cookies = url.ParseCookies(rawUrl,"_ga=GA1.1.630251354.1645893020; Hm_lvt_def79de877408c7bd826e49b694147bc=1647245863,1647936048,1648296630; Hm_lpvt_def79de877408c7bd826e49b694147bc=1648301329")
 	r, err := requests.Get(rawUrl, req)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println(r.Text)
 }
+
 
 {
   "cookies": {
