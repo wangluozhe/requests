@@ -81,7 +81,7 @@ func (pr *PrepareRequest) Prepare_method(method string) error {
 // 预处理url
 func (pr *PrepareRequest) Prepare_url(rawurl string, params *url.Params) error {
 	rawurl = strings.TrimSpace(rawurl)
-	urls, err := url.Parse(utils.EncodeURI(rawurl))
+	urls, err := url.Parse(rawurl)
 	if err != nil {
 		return err
 	}
