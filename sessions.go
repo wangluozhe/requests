@@ -308,6 +308,8 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			return nil, err
 		}
 		s.transport.Proxy = http.ProxyURL(u1)
+	} else {
+		s.transport.Proxy = nil
 	}
 
 	// 设置JA3指纹信息
@@ -380,6 +382,9 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	allowRedirect := req.AllowRedirects
 	if allowRedirect {
 		s.client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+			if len(via) > s.MaxRedirects {
+				return errors.New(fmt.Sprintf("redirects number gt %i", s.MaxRedirects))
+			}
 			if request != nil {
 				preq.Url = request.URL.String()
 				p := models.NewPrepareRequest()
@@ -389,8 +394,19 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 				r := s.buildResponse(request.Response, p, &url.Request{})
 				history = append(history, r)
 			}
-			if len(via) > s.MaxRedirects {
-				return errors.New(fmt.Sprintf("redirects number gt %i", s.MaxRedirects))
+			// 获取上一次请求的Cookies
+			var cookies []*http.Cookie
+			lastReq := via[len(via)-1]
+			if lastReq.Response != nil {
+				cookies = lastReq.Response.Cookies()
+			}
+
+			// 将上一次请求的Cookies与当前请求的Cookies合并
+			reqCookies := append(cookies, request.Cookies()...)
+
+			// 设置合并后的Cookies到重定向请求的Header中
+			for _, cookie := range reqCookies {
+				request.AddCookie(cookie)
 			}
 			return nil
 		}
