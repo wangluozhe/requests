@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/andybalholm/brotli"
-	tls "github.com/refraction-networking/utls"
+	utls "github.com/refraction-networking/utls"
 	"github.com/wangluozhe/fhttp"
 	"github.com/wangluozhe/fhttp/cookiejar"
 	"github.com/wangluozhe/fhttp/http2"
@@ -152,8 +152,9 @@ func NewSession() *Session {
 	cookies, _ := cookiejar.New(nil)
 	session.Cookies = cookies
 	session.transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
+		TLSClientConfig: &utls.Config{
 			InsecureSkipVerify: session.Verify,
+			OmitEmptyPsk:       true,
 		},
 		DisableKeepAlives: false, // 这里问题很严重
 	}
@@ -323,12 +324,22 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		// 自定义TLS指纹信息
 		tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*ja3.TLSExtensions)
 		http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http2.HTTP2Settings)
+		if strings.Index(strings.Split(browser.JA3, ",")[2], "-41") != -1 {
+			config := s.transport.TLSClientConfig.Clone()
+			if config.ClientSessionCache == nil {
+				config.SessionTicketKey = [32]byte{}
+				config.OmitEmptyPsk = true
+				config.ClientSessionCache = utls.NewLRUClientSessionCache(0)
+				s.transport.TLSClientConfig = config
+			}
+		}
 
 		options := &ja3.Options{
 			Browser:       browser,
 			TLSExtensions: tlsExtensions,
 			HTTP2Settings: http2Settings,
 			ForceHTTP1:    req.ForceHTTP1,
+			TLSConfig:     s.transport.TLSClientConfig,
 		}
 
 		if proxies != "" {
@@ -350,7 +361,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	cert := merge_setting(s.Cert, req.Cert).([]string)
 	if cert != nil {
 		var cert_byte []byte
-		certs, err := tls.LoadX509KeyPair(cert[0], cert[1])
+		certs, err := utls.LoadX509KeyPair(cert[0], cert[1])
 		if err != nil {
 			return nil, err
 		}
@@ -369,7 +380,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		}
 		s.transport.TLSClientConfig.RootCAs = certPool
 		fmt.Println(certs)
-		s.transport.TLSClientConfig.Certificates = []tls.Certificate{certs}
+		s.transport.TLSClientConfig.Certificates = []utls.Certificate{certs}
 	}
 
 	// 设置超时时间

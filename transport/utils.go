@@ -118,7 +118,9 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 			extMap["50"] = ext.SignatureAlgorithmsCert
 		}
 		if ext.KeyShareCurves != nil {
-			extMap["51"] = ext.KeyShareCurves
+			if strings.Index(strings.Split(ja3, ",")[2], "-41") == -1 {
+				extMap["51"] = ext.KeyShareCurves
+			}
 		}
 	}
 
@@ -200,7 +202,8 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 		"18": &utls.SCTExtension{},
 		"21": &utls.UtlsPaddingExtension{GetPaddingLen: utls.BoringPaddingStyle},
 		"22": &utls.GenericExtension{Id: 22}, // encrypt_then_mac
-		"23": &utls.UtlsExtendedMasterSecretExtension{},
+		"23": &utls.ExtendedMasterSecretExtension{},
+		"24": &utls.FakeTokenBindingExtension{},
 		"27": &utls.UtlsCompressCertExtension{
 			Algorithms: []utls.CertCompressionAlgo{utls.CertCompressionBrotli},
 		},
@@ -216,7 +219,7 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 			},
 		},
 		"35": &utls.SessionTicketExtension{},
-		"41": &utls.FakePreSharedKeyExtension{}, //FIXME pre_shared_key, Currently not supported 41 extension
+		"41": &utls.UtlsPreSharedKeyExtension{}, //FIXME pre_shared_key
 		"43": &utls.SupportedVersionsExtension{Versions: []uint16{
 			utls.VersionTLS13,
 			utls.VersionTLS12,
@@ -246,6 +249,7 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 
 			// {Group: utls.CurveP384}, known bug missing correct extensions for handshake
 		}},
+		"57":    &utls.QUICTransportParametersExtension{},
 		"13172": &utls.NPNExtension{},
 		"17513": &utls.ApplicationSettingsExtension{
 			SupportedProtocols: []string{

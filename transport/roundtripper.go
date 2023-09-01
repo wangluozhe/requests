@@ -96,17 +96,13 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 	}
 
 	rt.config.ServerName = host
-	conn := utls.UClient(rawConn, rt.config,
-		// MinVersion:         tls.VersionTLS10,
-		// MaxVersion:         tls.VersionTLS13,
-
-		utls.HelloCustom)
+	conn := utls.UClient(rawConn, rt.config.Clone(), utls.HelloCustom)
 
 	if err := conn.ApplyPreset(spec); err != nil {
 		return nil, err
 	}
 
-	if err = conn.Handshake(); err != nil {
+	if err = conn.HandshakeContext(ctx); err != nil {
 		_ = conn.Close()
 
 		if err.Error() == "tls: CurvePreferences includes unsupported curve" {
@@ -159,7 +155,18 @@ func (rt *roundTripper) getDialTLSAddr(req *http.Request) string {
 
 func newRoundTripper(browser Browser, config *utls.Config, tlsExtensions *TLSExtensions, http2Settings *http2.HTTP2Settings, forceHTTP1 bool, dialer ...proxy.ContextDialer) http.RoundTripper {
 	if config == nil {
-		config = &utls.Config{InsecureSkipVerify: true}
+		if strings.Index(strings.Split(browser.JA3, ",")[2], "-41") == -1 {
+			config = &utls.Config{
+				InsecureSkipVerify: true,
+			}
+		} else {
+			config = &utls.Config{
+				InsecureSkipVerify: true,
+				SessionTicketKey:   [32]byte{},
+				ClientSessionCache: utls.NewLRUClientSessionCache(0),
+				OmitEmptyPsk:       true,
+			}
+		}
 	}
 	if len(dialer) > 0 {
 
