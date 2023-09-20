@@ -127,27 +127,27 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 			TLSClientConfig: rt.config,
 			PushHandler:     &http2.DefaultPushHandler{},
 			Navigator:       parsedUserAgent,
-			HTTP2Settings:   rt.http2Settings,
-			Settings:        rt.http2Settings.Settings,
 		}
-		for _, v := range rt.http2Settings.Settings {
-			switch v.ID {
-			case http2.SettingHeaderTableSize:
-				t2.HeaderTableSize = v.Val
-			case http2.SettingEnablePush:
-				t2.HeaderTableSize = v.Val
-			case http2.SettingMaxConcurrentStreams:
-				if v.Val == 0 {
-					t2.StrictMaxConcurrentStreams = true
-				} else {
-					t2.StrictMaxConcurrentStreams = false
+		if rt.http2Settings != nil {
+			t2.HTTP2Settings = rt.http2Settings
+			if rt.http2Settings.Settings != nil {
+				t2.Settings = rt.http2Settings.Settings
+				for _, v := range rt.http2Settings.Settings {
+					switch v.ID {
+					case http2.SettingHeaderTableSize:
+						t2.HeaderTableSize = v.Val
+					case http2.SettingMaxConcurrentStreams:
+						if v.Val == 0 {
+							t2.StrictMaxConcurrentStreams = true
+						} else {
+							t2.StrictMaxConcurrentStreams = false
+						}
+					case http2.SettingInitialWindowSize:
+						t2.InitialWindowSize = v.Val
+					case http2.SettingMaxHeaderListSize:
+						t2.MaxHeaderListSize = v.Val
+					}
 				}
-			case http2.SettingInitialWindowSize:
-				t2.InitialWindowSize = v.Val
-			case http2.SettingMaxFrameSize:
-				t2.HeaderTableSize = v.Val
-			case http2.SettingMaxHeaderListSize:
-				t2.HeaderTableSize = v.Val
 			}
 		}
 		rt.cachedTransports[addr] = &t2
