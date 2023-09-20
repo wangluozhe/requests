@@ -456,7 +456,10 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 	if resp.Body != nil {
 		defer resp.Body.Close()
 	}
-	content, _ := ioutil.ReadAll(resp.Body)
+	content, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
 	encoding := resp.Header.Get("Content-Encoding")
 	DecompressBody(&content, encoding)
 	body := ioutil.NopCloser(bytes.NewReader(content))

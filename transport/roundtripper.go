@@ -122,11 +122,34 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 	switch conn.ConnectionState().NegotiatedProtocol {
 	case http2.NextProtoTLS:
 		parsedUserAgent := parseUserAgent(rt.UserAgent)
-		t2 := http2.Transport{DialTLS: rt.dialTLSHTTP2,
-			PushHandler: &http2.DefaultPushHandler{},
-			Navigator:   parsedUserAgent,
+		t2 := http2.Transport{
+			DialTLS:         rt.dialTLSHTTP2,
+			TLSClientConfig: rt.config,
+			PushHandler:     &http2.DefaultPushHandler{},
+			Navigator:       parsedUserAgent,
+			HTTP2Settings:   rt.http2Settings,
+			Settings:        rt.http2Settings.Settings,
 		}
-		t2.HTTP2Settings = rt.http2Settings
+		for _, v := range rt.http2Settings.Settings {
+			switch v.ID {
+			case http2.SettingHeaderTableSize:
+				t2.HeaderTableSize = v.Val
+			case http2.SettingEnablePush:
+				t2.HeaderTableSize = v.Val
+			case http2.SettingMaxConcurrentStreams:
+				if v.Val == 0 {
+					t2.StrictMaxConcurrentStreams = true
+				} else {
+					t2.StrictMaxConcurrentStreams = false
+				}
+			case http2.SettingInitialWindowSize:
+				t2.InitialWindowSize = v.Val
+			case http2.SettingMaxFrameSize:
+				t2.HeaderTableSize = v.Val
+			case http2.SettingMaxHeaderListSize:
+				t2.HeaderTableSize = v.Val
+			}
+		}
 		rt.cachedTransports[addr] = &t2
 	default:
 		// Assume the remote peer is speaking HTTP 1.x + TLS.
