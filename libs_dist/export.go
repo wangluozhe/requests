@@ -23,6 +23,16 @@ import (
 var unsafePointers = make(map[string]*C.char)
 var unsafePointersLock = sync.Mutex{}
 var errorFormat = "{\"err\": \"%v\"}"
+var session = make(map[string]*requests.Session)
+
+func GetSession(id string) *requests.Session {
+	if ss, ok := session[id]; ok {
+		return ss
+	}
+	ss := requests.NewSession()
+	session[id] = ss
+	return ss
+}
 
 //export request
 func request(requestParamsChar *C.char) *C.char {
@@ -37,7 +47,7 @@ func request(requestParamsChar *C.char) *C.char {
 	if c_err != nil {
 		return c_err
 	}
-	response, err := requests.Request(requestParams.Method, requestParams.Url, req)
+	response, err := GetSession(requestParams.Id).Request(requestParams.Method, requestParams.Url, req)
 	if err != nil {
 		return C.CString(fmt.Sprintf(errorFormat, err.Error()))
 	}

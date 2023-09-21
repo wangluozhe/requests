@@ -1,6 +1,7 @@
 package libs
 
 type RequestParams struct {
+	Id                string                 `json:"Id"`
 	Method            string                 `json:"Method"`
 	Url               string                 `json:"Url"`
 	Params            map[string]string      `json:"Params"`
