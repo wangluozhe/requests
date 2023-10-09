@@ -3,7 +3,6 @@ package models
 import (
 	"bytes"
 	"encoding/base64"
-	jsonp "encoding/json"
 	"errors"
 	"fmt"
 	"github.com/wangluozhe/fhttp"
@@ -139,7 +138,7 @@ func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json 
 	}
 	if data == nil && json != nil {
 		content_type = "application/json"
-		json_byte, err := jsonp.Marshal(json)
+		json_byte, err := utils.Marshal(json)
 		if err != nil {
 			return err
 		}
