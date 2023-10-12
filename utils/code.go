@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"regexp"
@@ -178,4 +179,14 @@ func UnEscape(s interface{}) string {
 	})
 	str = DecodeURIComponent(str)
 	return str
+}
+
+// Marshal 避免json.Marshal对 "<", ">", "&" 等字符进行HTML编码
+func Marshal(data interface{}) ([]byte, error) {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	// 禁用HTML转义
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(data)
+	return buffer.Bytes(), err
 }

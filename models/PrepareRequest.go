@@ -3,7 +3,6 @@ package models
 import (
 	"bytes"
 	"encoding/base64"
-	jsonp "encoding/json"
 	"errors"
 	"fmt"
 	"github.com/wangluozhe/fhttp"
@@ -139,7 +138,8 @@ func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json 
 	}
 	if data == nil && json != nil {
 		content_type = "application/json"
-		json_byte, err := jsonp.Marshal(json)
+		json_byte, err := utils.Marshal(json) // 避免json.Marshal对 "<", ">", "&" 等字符进行HTML编码
+		//json_byte, err := jsonp.Marshal(json)
 		if err != nil {
 			return err
 		}

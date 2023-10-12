@@ -15,6 +15,7 @@ import (
 	ja3 "github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
 	url2 "net/url"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -94,7 +95,9 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, *C.char) {
 	if requestParams.Headers != nil {
 		headers := url.NewHeaders()
 		for key, value := range requestParams.Headers {
-			headers.Set(key, value)
+			if strings.ToLower(key) != "content-length" {
+				headers.Set(key, value)
+			}
 		}
 		req.Headers = headers
 		if requestParams.HeadersOrder != nil {

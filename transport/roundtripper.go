@@ -142,8 +142,8 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 						} else {
 							t2.StrictMaxConcurrentStreams = false
 						}
-					case http2.SettingInitialWindowSize:
-						t2.InitialWindowSize = v.Val
+					//case http2.SettingInitialWindowSize:
+					//	t2.InitialWindowSize = v.Val
 					case http2.SettingMaxHeaderListSize:
 						t2.MaxHeaderListSize = v.Val
 					}
