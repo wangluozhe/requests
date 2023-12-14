@@ -2,8 +2,8 @@ package transport
 
 import (
 	utls "github.com/refraction-networking/utls"
-	http "github.com/wangluozhe/fhttp"
-	"github.com/wangluozhe/fhttp/http2"
+	http "github.com/wangluozhe/chttp"
+	"github.com/wangluozhe/chttp/http2"
 
 	"time"
 

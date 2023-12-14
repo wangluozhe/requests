@@ -6,10 +6,11 @@ package main
 import "C"
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	http "github.com/wangluozhe/fhttp"
-	"github.com/wangluozhe/fhttp/cookiejar"
+	http "github.com/wangluozhe/chttp"
+	"github.com/wangluozhe/chttp/cookiejar"
 	"github.com/wangluozhe/requests"
 	"github.com/wangluozhe/requests/libs"
 	ja3 "github.com/wangluozhe/requests/transport"
@@ -24,15 +25,23 @@ import (
 var unsafePointers = make(map[string]*C.char)
 var unsafePointersLock = sync.Mutex{}
 var errorFormat = "{\"err\": \"%v\"}"
-var session = make(map[string]*requests.Session)
+
+var sessionsPool = make(map[string]*sync.Pool)
+var sessionsPoolLock = sync.Mutex{}
 
 func GetSession(id string) *requests.Session {
-	if ss, ok := session[id]; ok {
-		return ss
+	sessionsPoolLock.Lock()
+	defer sessionsPoolLock.Unlock()
+	if sp, ok := sessionsPool[id]; ok {
+		return sp.Get().(*requests.Session)
 	}
-	ss := requests.NewSession()
-	session[id] = ss
-	return ss
+	sp := &sync.Pool{
+		New: func() interface{} {
+			return requests.NewSession()
+		},
+	}
+	sessionsPool[id] = sp
+	return sp.Get().(*requests.Session)
 }
 
 //export request
@@ -44,10 +53,11 @@ func request(requestParamsChar *C.char) *C.char {
 		return C.CString(fmt.Sprintf(errorFormat, err.Error()))
 	}
 
-	req, c_err := buildRequest(requestParams)
-	if c_err != nil {
-		return c_err
+	req, err := buildRequest(requestParams)
+	if err != nil {
+		return C.CString(fmt.Sprintf(errorFormat, err.Error()))
 	}
+
 	response, err := GetSession(requestParams.Id).Request(requestParams.Method, requestParams.Url, req)
 	if err != nil {
 		return C.CString(fmt.Sprintf(errorFormat, err.Error()))
@@ -74,13 +84,13 @@ func request(requestParamsChar *C.char) *C.char {
 	return responseString
 }
 
-func buildRequest(requestParams libs.RequestParams) (*url.Request, *C.char) {
+func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 	if requestParams.Method == "" {
-		return nil, C.CString(fmt.Sprintf(errorFormat, "method is null"))
+		return nil, errors.New("method is null")
 	}
 
 	if requestParams.Url == "" {
-		return nil, C.CString(fmt.Sprintf(errorFormat, "url is null"))
+		return nil, errors.New("url is null")
 	}
 
 	req := url.NewRequest()
@@ -102,6 +112,9 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, *C.char) {
 		req.Headers = headers
 		if requestParams.HeadersOrder != nil {
 			(*req.Headers)[http.HeaderOrderKey] = requestParams.HeadersOrder
+		}
+		if requestParams.UnChangedHeaderKey != nil {
+			(*req.Headers)[http.UnChangedHeaderKey] = requestParams.UnChangedHeaderKey
 		}
 	}
 
@@ -170,7 +183,7 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, *C.char) {
 		tlsExtensions := &ja3.Extensions{}
 		err := json.Unmarshal([]byte(requestParams.TLSExtensions), tlsExtensions)
 		if err != nil {
-			return nil, C.CString(fmt.Sprintf(errorFormat, err.Error()))
+			return nil, err
 		}
 		req.TLSExtensions = ja3.ToTLSExtensions(tlsExtensions)
 	}
@@ -179,7 +192,7 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, *C.char) {
 		http2Settings := &ja3.H2Settings{}
 		err := json.Unmarshal([]byte(requestParams.HTTP2Settings), http2Settings)
 		if err != nil {
-			return nil, C.CString(fmt.Sprintf(errorFormat, err.Error()))
+			return nil, err
 		}
 		req.HTTP2Settings = ja3.ToHTTP2Settings(http2Settings)
 	}

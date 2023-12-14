@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	http "github.com/wangluozhe/fhttp"
+	http "github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/requests/transport"
 	"io"
 	"log"

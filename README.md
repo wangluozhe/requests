@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.20-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.1.19-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.20-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.2.0-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
 
 requests支持以下新特性：
 
@@ -28,7 +28,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版
 
 ```bash
-go get github.com/wangluozhe/requests@v1.1.19
+go get github.com/wangluozhe/requests@v1.2.0
 ```
 
 
@@ -1005,7 +1005,7 @@ package main
 
 import (
 	"fmt"
-	http "github.com/wangluozhe/fhttp"
+	http "github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/requests"
 	"github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
@@ -1104,7 +1104,7 @@ package main
 
 import (
 	"fmt"
-	http "github.com/wangluozhe/fhttp"
+	http "github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/requests"
 	"github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
@@ -1227,6 +1227,119 @@ func main() {
 	fmt.Println("text:", r.Text)
 }
 
+```
+
+
+## JA4指纹
+
+`JA4`是什么，怎么组成的，请看华总的文章[JA4概要](https://blog.csdn.net/Y_morph/article/details/133747866?spm=1001.2014.3001.5501)
+
+```golang
+package main
+
+import (
+	"fmt"
+	http "github.com/wangluozhe/chttp"
+	"github.com/wangluozhe/requests"
+	"github.com/wangluozhe/requests/transport"
+	"github.com/wangluozhe/requests/url"
+)
+
+func main() {
+	req := url.NewRequest()
+	headers := &http.Header{
+		"Accept":                    []string{"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
+		"Accept-Encoding":           []string{"gzip, deflate, br"},
+		"Accept-Language":           []string{"zh-CN,zh;q=0.9"},
+		"Cache-Control":             []string{"no-cache"},
+		"Connection":                []string{"keep-alive"},
+		"Host":                      []string{"gospider2.gospiderb.asia:8998"},
+		"Pragma":                    []string{"no-cache"},
+		"sec-ch-ua":                 []string{"\".Not/A)Brand\";v=\"99\", \"Google Chrome\";v=\"103\", \"Chromium\";v=\"103\""},
+		"sec-ch-ua-mobile":          []string{"\"?0\""},
+		"sec-ch-ua-platform":        []string{"\"Windows\""},
+		"Sec-Fetch-Dest":            []string{"document"},
+		"Sec-Fetch-Mode":            []string{"navigate"},
+		"Sec-Fetch-Site":            []string{"none"},
+		"Sec-Fetch-User":            []string{"\"?1\""},
+		"Upgrade-Insecure-Requests": []string{"1"},
+		"User-Agent":                []string{"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36"},
+		http.HeaderOrderKey: []string{
+			"HOST",
+			"connection",
+			"pragma",
+			"Cache-Control",
+			"sec-ch-ua",
+			"sec-ch-ua-mobile",
+			"sec-ch-ua-platform",
+			"upgrade-insecure-requests",
+			"user-agent",
+			"accept",
+			"sec-fetch-site",
+			"sec-fetch-mode",
+			"sec-fetch-user",
+			"sec-fetch-dest",
+			"accept-encoding",
+			"accept-language",
+		},
+		http.UnChangedHeaderKey: []string{
+			"sec-ch-ua",
+			"sec-ch-ua-mobile",
+			"sec-ch-ua-platform",
+		},
+	}
+	req.Headers = headers
+	req.Ja3 = "772,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21-41,29-23-24,0"
+	req.ForceHTTP1 = true
+	es := &transport.Extensions{
+		SupportedSignatureAlgorithms: []string{
+			"ecdsa_secp256r1_sha256",
+			"rsa_pss_rsae_sha256",
+			"rsa_pkcs1_sha256",
+			"ecdsa_secp384r1_sha384",
+			"rsa_pss_rsae_sha384",
+			"rsa_pkcs1_sha384",
+			"rsa_pss_rsae_sha512",
+			"rsa_pkcs1_sha512",
+		},
+		CertCompressionAlgo: []string{
+			"brotli",
+		},
+		RecordSizeLimit: 4001,
+		DelegatedCredentials: []string{
+			"ECDSAWithP256AndSHA256",
+			"ECDSAWithP384AndSHA384",
+			"ECDSAWithP521AndSHA512",
+			"ECDSAWithSHA1",
+		},
+		SupportedVersions: []string{
+			"GREASE",
+			"1.3",
+			"1.2",
+		},
+		PSKKeyExchangeModes: []string{
+			"PskModeDHE",
+		},
+		KeyShareCurves: []string{
+			"GREASE",
+			"X25519",
+		},
+	}
+	tes := transport.ToTLSExtensions(es)
+	req.TLSExtensions = tes
+	r, err := requests.Get("https://gospider2.gospiderb.asia:8998/", req)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(r.Request.Headers)
+	fmt.Println("url:", r.Url)
+	fmt.Println("headers:", r.Headers)
+	fmt.Println("text:", r.Text)
+}
+
+// 模拟后的结果
+// JA4:  t13d1516h1_dea800f94266_27c5da80acb3
+// JA4H: ge11nn13zhcn_d8f538a17def_e3b0c44298fc_e3b0c44298fc
 ```
 
 

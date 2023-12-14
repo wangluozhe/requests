@@ -1,8 +1,8 @@
 package models
 
 import (
-	"github.com/wangluozhe/fhttp"
-	"github.com/wangluozhe/fhttp/cookiejar"
+	"github.com/wangluozhe/chttp"
+	"github.com/wangluozhe/chttp/cookiejar"
 	"github.com/wangluozhe/requests/url"
 )
 

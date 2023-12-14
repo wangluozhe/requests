@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"github.com/andybalholm/brotli"
 	utls "github.com/refraction-networking/utls"
-	"github.com/wangluozhe/fhttp"
-	"github.com/wangluozhe/fhttp/cookiejar"
-	"github.com/wangluozhe/fhttp/http2"
+	"github.com/wangluozhe/chttp"
+	"github.com/wangluozhe/chttp/cookiejar"
+	"github.com/wangluozhe/chttp/http2"
 	"github.com/wangluozhe/requests/models"
 	ja3 "github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
@@ -71,7 +71,7 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 			return merged_setting
 		}
 		for key, _ := range *requestd_setting {
-			if key == http.PHeaderOrderKey || key == http.HeaderOrderKey {
+			if key == http.PHeaderOrderKey || key == http.HeaderOrderKey || key == http.UnChangedHeaderKey {
 				continue
 			}
 			merged_setting.Set(key, (*requestd_setting)[key][0])
@@ -432,6 +432,9 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		}
 		if (*req.Headers)[http.PHeaderOrderKey] != nil {
 			(*preq.Headers)[http.PHeaderOrderKey] = (*req.Headers)[http.PHeaderOrderKey]
+		}
+		if (*req.Headers)[http.UnChangedHeaderKey] != nil {
+			(*preq.Headers)[http.UnChangedHeaderKey] = (*req.Headers)[http.UnChangedHeaderKey]
 		}
 	}
 

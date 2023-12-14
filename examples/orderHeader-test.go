@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	http "github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/requests"
 	"github.com/wangluozhe/requests/url"
 )
@@ -90,7 +91,12 @@ func main() {
 		"upgrade-insecure-requests": "1",
 		"user-agent":                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36",
 	})
-	r, err := requests.Get("https://httpbin.org/get", req)
+	(*req.Headers)[http.UnChangedHeaderKey] = []string{
+		"sec-ch-ua",
+		"sec-ch-ua-mobile",
+		"sec-ch-ua-platform",
+	}
+	r, err := requests.Get("https://tls.peet.ws/api/all", req)
 	if err != nil {
 		fmt.Println(err)
 	}

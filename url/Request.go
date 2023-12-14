@@ -1,9 +1,9 @@
 package url
 
 import (
-	"github.com/wangluozhe/fhttp"
-	"github.com/wangluozhe/fhttp/cookiejar"
-	"github.com/wangluozhe/fhttp/http2"
+	"github.com/wangluozhe/chttp"
+	"github.com/wangluozhe/chttp/cookiejar"
+	"github.com/wangluozhe/chttp/http2"
 	ja3 "github.com/wangluozhe/requests/transport"
 	"time"
 )
