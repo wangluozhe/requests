@@ -33,7 +33,9 @@ func GetSession(id string) *requests.Session {
 	sessionsPoolLock.Lock()
 	defer sessionsPoolLock.Unlock()
 	if sp, ok := sessionsPool[id]; ok {
-		return sp.Get().(*requests.Session)
+		s := sp.Get().(*requests.Session)
+		sp.Put(s)
+		return s
 	}
 	sp := &sync.Pool{
 		New: func() interface{} {
@@ -41,7 +43,9 @@ func GetSession(id string) *requests.Session {
 		},
 	}
 	sessionsPool[id] = sp
-	return sp.Get().(*requests.Session)
+	s := sp.Get().(*requests.Session)
+	sp.Put(s)
+	return s
 }
 
 //export request
@@ -50,17 +54,17 @@ func request(requestParamsChar *C.char) *C.char {
 	requestParams := libs.RequestParams{}
 	err := json.Unmarshal([]byte(requestParamsString), &requestParams)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, err.Error()))
+		return C.CString(fmt.Sprintf(errorFormat, "request->err := json.Unmarshal([]byte(requestParamsString), &requestParams) failed: "+err.Error()))
 	}
 
 	req, err := buildRequest(requestParams)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, err.Error()))
+		return C.CString(fmt.Sprintf(errorFormat, "request->req, err := buildRequest(requestParams) failed: "+err.Error()))
 	}
 
 	response, err := GetSession(requestParams.Id).Request(requestParams.Method, requestParams.Url, req)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, err.Error()))
+		return C.CString(fmt.Sprintf(errorFormat, "request->response, err := GetSession(requestParams.Id).Request(requestParams.Method, requestParams.Url, req) failed: "+err.Error()))
 	}
 
 	responseParams := make(map[string]interface{})
@@ -73,7 +77,7 @@ func request(requestParamsChar *C.char) *C.char {
 
 	responseParamsString, err := json.Marshal(responseParams)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, err.Error()))
+		return C.CString(fmt.Sprintf(errorFormat, "request->responseParamsString, err := json.Marshal(responseParams) failed: "+err.Error()))
 	}
 	responseString := C.CString(string(responseParamsString))
 
@@ -213,11 +217,18 @@ func freeMemory(responseId *C.char) {
 		return
 	}
 
-	C.free(unsafe.Pointer(ptr))
+	if ptr != nil {
+		defer C.free(unsafe.Pointer(ptr))
+	}
 
 	delete(unsafePointers, responseIdString)
 }
 
 func main() {
-
+	defer func() {
+		if r := recover(); r != nil {
+			// 处理 panic，可以记录日志或采取其他措施
+			fmt.Println("Recovered from panic:", r)
+		}
+	}()
 }
