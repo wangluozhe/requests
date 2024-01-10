@@ -15,6 +15,7 @@ import (
 	"github.com/wangluozhe/requests/libs"
 	ja3 "github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
+	"github.com/wangluozhe/requests/utils"
 	url2 "net/url"
 	"strings"
 	"sync"
@@ -73,7 +74,7 @@ func request(requestParamsChar *C.char) *C.char {
 	responseParams["headers"] = response.Headers
 	responseParams["cookies"] = response.Cookies
 	responseParams["status_code"] = response.StatusCode
-	responseParams["content"] = response.Text
+	responseParams["content"] = utils.Base64Encode(response.Text)
 
 	responseParamsString, err := json.Marshal(responseParams)
 	if err != nil {

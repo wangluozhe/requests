@@ -402,7 +402,10 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 				c, _ := cookiejar.New(nil)
 				c.SetCookies(request.URL, request.Cookies())
 				p.Prepare(request.Method, request.URL.String(), nil, &request.Header, c, nil, nil, nil, "", nil)
-				r := s.buildResponse(request.Response, p, &url.Request{})
+				r, err := s.buildResponse(request.Response, p, &url.Request{})
+				if err != nil {
+					return err
+				}
 				history = append(history, r)
 			}
 			// 获取上一次请求的Cookies
@@ -441,6 +444,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	s.request, err = http.NewRequest(preq.Method, preq.Url, preq.Body)
 	if err != nil {
 		log.Fatalln(err)
+		return nil, err
 	}
 	s.request.Header = *preq.Headers
 	s.client.Jar = preq.Cookies
@@ -449,19 +453,22 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	if err != nil {
 		return nil, err
 	}
-	response := s.buildResponse(resp, preq, req)
+	response, err := s.buildResponse(resp, preq, req)
+	if err != nil {
+		return nil, err
+	}
 	response.History = history
 	return response, nil
 }
 
 // 构建response参数
-func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) *models.Response {
+func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
 	if resp.Body != nil {
 		defer resp.Body.Close()
 	}
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	encoding := resp.Header.Get("Content-Encoding")
 	DecompressBody(&content, encoding)
@@ -481,7 +488,7 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 		u, _ := url2.Parse(preq.Url)
 		s.Cookies.SetCookies(u, resp.Cookies())
 	}
-	return response
+	return response, nil
 }
 
 // 解码Body数据
