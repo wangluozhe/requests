@@ -196,7 +196,7 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 			},
 		},
 		"16": &utls.ALPNExtension{
-			AlpnProtocols: []string{"h2", "http/1.1"},
+			AlpnProtocols: []string{"h2", "h2-fb", "http/1.1"},
 		},
 		"17": &utls.GenericExtension{Id: 17}, // status_request_v2
 		"18": &utls.SCTExtension{},
