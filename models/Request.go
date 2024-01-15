@@ -3,7 +3,7 @@ package models
 import (
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
-	"github.com/wangluozhe/requests/url"
+	"github.com/760644586/requests/url"
 )
 
 type Request struct {
