@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/bitly/go-simplejson"
 	"github.com/wangluozhe/chttp"
-	"github.com/wangluozhe/requests/url"
+	"github.com/760644586/requests/url"
 	"io"
 )
 
