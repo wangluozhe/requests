@@ -4,7 +4,7 @@ import (
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
 	"github.com/wangluozhe/chttp/http2"
-	ja3 "github.com/wangluozhe/requests/transport"
+	ja3 "github.com/wangluozhe/760644586/transport"
 	"time"
 )
 
