@@ -48,26 +48,7 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	}
 	// parse curves
 	var targetCurves []utls.CurveID
-	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-		targetCurves = append(targetCurves, utls.CurveID(utls.GREASE_PLACEHOLDER)) //append grease for Chrome browsers
-		if supportedVersionsExt, ok := extMap["43"]; ok {
-			if supportedVersions, ok := supportedVersionsExt.(*utls.SupportedVersionsExtension); ok {
-				supportedVersions.Versions = append([]uint16{utls.GREASE_PLACEHOLDER}, supportedVersions.Versions...)
-			}
-		}
-		if keyShareExt, ok := extMap["51"]; ok {
-			if keyShare, ok := keyShareExt.(*utls.KeyShareExtension); ok {
-				keyShare.KeyShares = append([]utls.KeyShare{{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}}}, keyShare.KeyShares...)
-			}
-		}
-	}
-	for _, c := range curves {
-		cid, err := strconv.ParseUint(c, 10, 16)
-		if err != nil {
-			return nil, err
-		}
-		targetCurves = append(targetCurves, utls.CurveID(cid))
-	}
+
 	extMap["10"] = &utls.SupportedCurvesExtension{Curves: targetCurves}
 
 	// parse point formats
