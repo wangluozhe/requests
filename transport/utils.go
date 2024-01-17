@@ -127,7 +127,7 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 		if !ok {
 			return nil, raiseExtensionError(e)
 		}
-		//Optionally add Chrome Grease Extension
+		// //Optionally add Chrome Grease Extension
 		if e == "21" && parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
 			exts = append(exts, &utls.UtlsGREASEExtension{})
 		}
