@@ -49,6 +49,16 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	// parse curves
 	var targetCurves []utls.CurveID
 
+	
+	for _, c := range curves {
+		cid, err := strconv.ParseUint(c, 10, 16)
+		if err != nil {
+			return nil, err
+		}
+		targetCurves = append(targetCurves, utls.CurveID(cid))
+	}
+
+	
 	extMap["10"] = &utls.SupportedCurvesExtension{Curves: targetCurves}
 
 	// parse point formats
