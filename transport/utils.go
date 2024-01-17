@@ -48,17 +48,13 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	}
 	// parse curves
 	var targetCurves []utls.CurveID
-
-	
 	for _, c := range curves {
-		cid, err := strconv.ParseUint(c, 10, 16)
+		cid, err := strconv.ParseUint(c, 10, 0)
 		if err != nil {
 			return nil, err
 		}
 		targetCurves = append(targetCurves, utls.CurveID(cid))
 	}
-
-	
 	extMap["10"] = &utls.SupportedCurvesExtension{Curves: targetCurves}
 
 	// parse point formats
@@ -118,18 +114,10 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 
 	// build extenions list
 	var exts []utls.TLSExtension
-	//Optionally Add Chrome Grease Extension
-	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-		exts = append(exts, &utls.UtlsGREASEExtension{})
-	}
 	for _, e := range extensions {
 		te, ok := extMap[e]
 		if !ok {
 			return nil, raiseExtensionError(e)
-		}
-		// //Optionally add Chrome Grease Extension
-		if e == "21" && parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-			exts = append(exts, &utls.UtlsGREASEExtension{})
 		}
 		exts = append(exts, te)
 	}
@@ -138,7 +126,7 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	var suites []uint16
 	//Optionally Add Chrome Grease Extension
 	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-		suites = append(suites, utls.GREASE_PLACEHOLDER)
+		suites = append(suites)
 	}
 	for _, c := range ciphers {
 		cid, err := strconv.ParseUint(c, 10, 16)
@@ -160,9 +148,6 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 	extMap = map[string]utls.TLSExtension{
 		"0": &utls.SNIExtension{},
 		"5": &utls.StatusRequestExtension{},
-		// These are applied later
-		// "10": &tls.SupportedCurvesExtension{...}
-		// "11": &tls.SupportedPointsExtension{...}
 		"13": &utls.SignatureAlgorithmsExtension{
 			SupportedSignatureAlgorithms: []utls.SignatureScheme{
 				utls.ECDSAWithP256AndSHA256,
@@ -171,9 +156,7 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 				utls.PSSWithSHA256,
 			},
 		},
-		"16": &utls.ALPNExtension{
-			AlpnProtocols: []string{"h2", "h2-fb", "http/1.1"},
-		},
+		"16": &utls.ALPNExtension{AlpnProtocols: []string{"h2", "h2-fb", "http/1.1"}},
 		"17": &utls.GenericExtension{Id: 17}, // status_request_v2
 		"18": &utls.SCTExtension{},
 		"21": &utls.UtlsPaddingExtension{GetPaddingLen: utls.BoringPaddingStyle},
