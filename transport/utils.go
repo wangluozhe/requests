@@ -119,27 +119,27 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	// build extenions list
 	var exts []utls.TLSExtension
 	//Optionally Add Chrome Grease Extension
-	//if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-		//exts = append(exts, &utls.UtlsGREASEExtension{})
-	//}
+	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
+		exts = append(exts, &utls.UtlsGREASEExtension{})
+	}
 	for _, e := range extensions {
 		te, ok := extMap[e]
 		if !ok {
 			return nil, raiseExtensionError(e)
 		}
-		// //Optionally add Chrome Grease Extension
-		//if e == "21" && parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-		//	exts = append(exts, &utls.UtlsGREASEExtension{})
-		//}
+		//Optionally add Chrome Grease Extension
+		if e == "21" && parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
+			exts = append(exts, &utls.UtlsGREASEExtension{})
+		}
 		exts = append(exts, te)
 	}
 
 	// build CipherSuites
 	var suites []uint16
 	//Optionally Add Chrome Grease Extension
-	//if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-		//suites = append(suites, utls.GREASE_PLACEHOLDER)
-	//}
+	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
+		suites = append(suites, utls.GREASE_PLACEHOLDER)
+	}
 	for _, c := range ciphers {
 		cid, err := strconv.ParseUint(c, 10, 16)
 		if err != nil {
