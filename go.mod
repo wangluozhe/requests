@@ -1,4 +1,4 @@
-module github.com/wangluozhe/requests
+module github.com/760644586/requests
 
 go 1.20
 

@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/wangluozhe/requests"
-	"github.com/wangluozhe/requests/url"
+	"github.com/760644586/requests"
+	"github.com/760644586/requests/url"
 )
 
 func main() {

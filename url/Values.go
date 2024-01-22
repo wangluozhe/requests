@@ -1,7 +1,7 @@
 package url
 
 import (
-	"github.com/wangluozhe/requests/utils"
+	"github.com/760644586/requests/utils"
 	"strconv"
 	"strings"
 	"sync"

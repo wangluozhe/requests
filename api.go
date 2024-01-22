@@ -1,8 +1,8 @@
 package requests
 
 import (
-	"github.com/wangluozhe/requests/models"
-	"github.com/wangluozhe/requests/url"
+	"github.com/760644586/requests/models"
+	"github.com/760644586/requests/url"
 	"net/http"
 )
 

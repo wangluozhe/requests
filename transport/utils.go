@@ -48,27 +48,8 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	}
 	// parse curves
 	var targetCurves []utls.CurveID
-	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-		targetCurves = append(targetCurves, utls.CurveID(utls.GREASE_PLACEHOLDER)) //append grease for Chrome browsers
-		if supportedVersionsExt, ok := extMap["43"]; ok {
-			if supportedVersions, ok := supportedVersionsExt.(*utls.SupportedVersionsExtension); ok {
-				supportedVersions.Versions = append([]uint16{utls.GREASE_PLACEHOLDER}, supportedVersions.Versions...)
-			}
-		}
-		if keyShareExt, ok := extMap["51"]; ok {
-			if keyShare, ok := keyShareExt.(*utls.KeyShareExtension); ok {
-				keyShare.KeyShares = append([]utls.KeyShare{{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}}}, keyShare.KeyShares...)
-			}
-		}
-	} else {
-		if keyShareExt, ok := extMap["51"]; ok {
-			if keyShare, ok := keyShareExt.(*utls.KeyShareExtension); ok {
-				keyShare.KeyShares = append(keyShare.KeyShares, utls.KeyShare{Group: utls.CurveP256})
-			}
-		}
-	}
 	for _, c := range curves {
-		cid, err := strconv.ParseUint(c, 10, 16)
+		cid, err := strconv.ParseUint(c, 10, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -133,18 +114,10 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 
 	// build extenions list
 	var exts []utls.TLSExtension
-	//Optionally Add Chrome Grease Extension
-	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-		exts = append(exts, &utls.UtlsGREASEExtension{})
-	}
 	for _, e := range extensions {
 		te, ok := extMap[e]
 		if !ok {
 			return nil, raiseExtensionError(e)
-		}
-		// //Optionally add Chrome Grease Extension
-		if e == "21" && parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-			exts = append(exts, &utls.UtlsGREASEExtension{})
 		}
 		exts = append(exts, te)
 	}
@@ -153,7 +126,7 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	var suites []uint16
 	//Optionally Add Chrome Grease Extension
 	if parsedUserAgent == chrome && !tlsExtensions.NotUsedGREASE {
-		suites = append(suites, utls.GREASE_PLACEHOLDER)
+		suites = append(suites)
 	}
 	for _, c := range ciphers {
 		cid, err := strconv.ParseUint(c, 10, 16)
@@ -164,8 +137,6 @@ func StringToSpec(ja3 string, userAgent string, tlsExtensions *TLSExtensions, fo
 	}
 	_ = vid
 	return &utls.ClientHelloSpec{
-		// TLSVersMin:         vid,
-		// TLSVersMax:         vid,
 		CipherSuites:       suites,
 		CompressionMethods: []byte{0},
 		Extensions:         exts,
@@ -177,27 +148,15 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 	extMap = map[string]utls.TLSExtension{
 		"0": &utls.SNIExtension{},
 		"5": &utls.StatusRequestExtension{},
-		// These are applied later
-		// "10": &tls.SupportedCurvesExtension{...}
-		// "11": &tls.SupportedPointsExtension{...}
 		"13": &utls.SignatureAlgorithmsExtension{
 			SupportedSignatureAlgorithms: []utls.SignatureScheme{
 				utls.ECDSAWithP256AndSHA256,
 				utls.ECDSAWithP384AndSHA384,
 				utls.ECDSAWithP521AndSHA512,
 				utls.PSSWithSHA256,
-				utls.PSSWithSHA384,
-				utls.PSSWithSHA512,
-				utls.PKCS1WithSHA256,
-				utls.PKCS1WithSHA384,
-				utls.PKCS1WithSHA512,
-				utls.ECDSAWithSHA1,
-				utls.PKCS1WithSHA1,
 			},
 		},
-		"16": &utls.ALPNExtension{
-			AlpnProtocols: []string{"h2", "http/1.1"},
-		},
+		"16": &utls.ALPNExtension{AlpnProtocols: []string{"h2", "h2-fb", "http/1.1"}},
 		"17": &utls.GenericExtension{Id: 17}, // status_request_v2
 		"18": &utls.SCTExtension{},
 		"21": &utls.UtlsPaddingExtension{GetPaddingLen: utls.BoringPaddingStyle},
@@ -222,7 +181,6 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 		"41": &utls.UtlsPreSharedKeyExtension{}, //FIXME pre_shared_key
 		"43": &utls.SupportedVersionsExtension{Versions: []uint16{
 			utls.VersionTLS13,
-			utls.VersionTLS12,
 		}},
 		"44": &utls.CookieExtension{},
 		"45": &utls.PSKKeyExchangeModesExtension{Modes: []uint8{
@@ -235,19 +193,10 @@ func genMap() (extMap map[string]utls.TLSExtension) {
 				utls.ECDSAWithP384AndSHA384,
 				utls.ECDSAWithP521AndSHA512,
 				utls.PSSWithSHA256,
-				utls.PSSWithSHA384,
-				utls.PSSWithSHA512,
-				utls.PKCS1WithSHA256,
-				utls.PKCS1WithSHA384,
-				utls.PKCS1WithSHA512,
-				utls.ECDSAWithSHA1,
-				utls.PKCS1WithSHA1,
 			},
 		}, // signature_algorithms_cert
 		"51": &utls.KeyShareExtension{KeyShares: []utls.KeyShare{
 			{Group: utls.X25519},
-
-			// {Group: utls.CurveP384}, known bug missing correct extensions for handshake
 		}},
 		"57":    &utls.QUICTransportParametersExtension{},
 		"13172": &utls.NPNExtension{},

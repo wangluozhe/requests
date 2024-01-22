@@ -1,0 +1,38 @@
+# 此工作流程使用未经 GitHub 认证的操作。
+# 它们由第三方提供并受
+# 单独的服务条款、隐私政策和支持
+# 文档。
+
+# 此工作流程允许您使用 SLSA3 兼容的构建器编译 Go 项目。
+# 此工作流程将生成一个所谓的“来源”文件，描述步骤
+# 执行这些操作是为了生成最终的二进制文件。
+# 该项目是 OpenSSF (openssf.org) 的一项倡议，开发于
+# https://github.com/slsa-framework/slsa-github-generator。
+# 来源文件可以使用 https://github.com/slsa-framework/slsa-verifier 进行验证。
+# 有关 SLSA 及其如何改进供应链的更多信息，请访问 slsa.dev。
+
+姓名：名称： SLSA Go 发行者
+在：
+  工作流程_调度：
+  发布：
+    类型：[已创建]]
+
+permissions: 权限：只读
+
+jobs:
+  # =================================================== =================================================== =======================================# ========================================================================================================================================
+  # 先决条件：在项目的根目录中创建一个 .slsa-goreleaser.yml。#     Prerequesite: Create a .slsa-goreleaser.yml in the root directory of your project.
+  # 请参阅 https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/go/README.md#configuration-file 中的格式#       See format in https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/go/README.md#configuration-file
+  #=================================================== =================================================== =======================================#=========================================================================================================================================
+  build:
+    permissions:
+      id-token:       id-token：写#来签名。# To sign.
+      contents:       内容：写入 # 上传发布资产。# To upload release assets.
+      actions:       actions: read # 读取工作流程路径。# To read workflow path.
+    uses:     使用：slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v1.4.0
+    with:
+      go-version: 1.17
+      # =================================================== =================================================== =========# =============================================================================================================
+      # 可选：更多选项请参见 https://github.com/slsa-framework/slsa-github-generator#golang-projects#     Optional: For more options, see https://github.com/slsa-framework/slsa-github-generator#golang-projects
+      # =============================================================================================================
+

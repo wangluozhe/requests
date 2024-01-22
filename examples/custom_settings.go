@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	http "github.com/wangluozhe/chttp"
-	"github.com/wangluozhe/requests/transport"
+	"github.com/760644586/requests/transport"
 	"io"
 	"log"
 	"strings"
