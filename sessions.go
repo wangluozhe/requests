@@ -133,7 +133,10 @@ var disableRedirect = func(request *http.Request, via []*http.Request) error {
 	return http.ErrUseLastResponse
 }
 
-var DEFAULT_TRANSPORT *http.Transport // 默认 Transport
+var (
+	DEFAULT_TRANSPORT *http.Transport // 默认 Transport
+	defineTransport   sync.Once
+)
 
 const (
 	DEFAULT_REDIRECT_LIMIT = 30 // 默认redirect最大次数
@@ -154,7 +157,7 @@ func NewSession() *Session {
 	cookies, _ := cookiejar.New(nil)
 	session.Cookies = cookies
 	
-	if DEFAULT_TRANSPORT == nil {
+	defineTransport.Do(func() {
 		// Transports should be reused instead of created as needed.
 		// Transports are safe for concurrent use by multiple goroutines.
 		DEFAULT_TRANSPORT = &http.Transport{
@@ -164,7 +167,7 @@ func NewSession() *Session {
 			},
 			DisableKeepAlives: false,
 		}
-	}
+	})
 	session.transport = DEFAULT_TRANSPORT
 
 	session.client = &http.Client{
