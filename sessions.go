@@ -133,6 +133,8 @@ var disableRedirect = func(request *http.Request, via []*http.Request) error {
 	return http.ErrUseLastResponse
 }
 
+var DEFAULT_TRANSPORT *http.Transport // 默认 Transport
+
 const (
 	DEFAULT_REDIRECT_LIMIT = 30 // 默认redirect最大次数
 	DEFAULT_TIMEOUT        = 10 // 默认client响应时间
@@ -151,14 +153,20 @@ func NewSession() *Session {
 	}
 	cookies, _ := cookiejar.New(nil)
 	session.Cookies = cookies
-	session.transport = &http.Transport{
-		TLSClientConfig: &utls.Config{
-			InsecureSkipVerify: session.Verify,
-			OmitEmptyPsk:       true,
-		},
-		DisableKeepAlives: false, // 这里问题很严重
+	
+	if DEFAULT_TRANSPORT == nil {
+		// Transports should be reused instead of created as needed.
+		// Transports are safe for concurrent use by multiple goroutines.
+		DEFAULT_TRANSPORT = &http.Transport{
+			TLSClientConfig: &utls.Config{
+				InsecureSkipVerify: session.Verify,
+				OmitEmptyPsk:       true,
+			},
+			DisableKeepAlives: false,
+		}
 	}
-	session.request = &http.Request{}
+	session.transport = DEFAULT_TRANSPORT
+
 	session.client = &http.Client{
 		Transport:     session.transport,
 		CheckRedirect: nil,
