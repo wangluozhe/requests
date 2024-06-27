@@ -17,6 +17,7 @@ import (
 	ja3 "github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
 	"github.com/wangluozhe/requests/utils"
+	"io"
 	"io/ioutil"
 	"log"
 	url2 "net/url"
@@ -463,6 +464,34 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 // 构建response参数
 func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+	stream := strings.Contains(resp.Header.Get("Content-Type"), "application/stream") ||
+		strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
+	encoding := resp.Header.Get("Content-Encoding")
+	if stream {
+
+		body := resp.Body
+		if encoding == "br" {
+			body = io.NopCloser(brotli.NewReader(resp.Body))
+		}
+
+		response := &models.Response{
+			Url:        preq.Url,
+			Headers:    resp.Header,
+			Cookies:    resp.Cookies(),
+			Text:       "",
+			Content:    nil,
+			Body:       body,
+			StatusCode: resp.StatusCode,
+			History:    []*models.Response{},
+			Request:    req,
+		}
+		if resp.Cookies() != nil {
+			u, _ := url2.Parse(preq.Url)
+			s.Cookies.SetCookies(u, resp.Cookies())
+		}
+		return response, nil
+	}
+
 	if resp.Body != nil {
 		defer resp.Body.Close()
 	}
@@ -470,9 +499,9 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 	if err != nil {
 		return nil, err
 	}
-	encoding := resp.Header.Get("Content-Encoding")
+
 	DecompressBody(&content, encoding)
-	body := ioutil.NopCloser(bytes.NewReader(content))
+	body := io.NopCloser(bytes.NewReader(content))
 	response := &models.Response{
 		Url:        preq.Url,
 		Headers:    resp.Header,
