@@ -468,10 +468,12 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 		strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
 	encoding := resp.Header.Get("Content-Encoding")
 	if stream {
-
 		body := resp.Body
 		if encoding == "br" {
-			body = io.NopCloser(brotli.NewReader(resp.Body))
+			body = struct {
+				io.Reader
+				io.Closer
+			}{brotli.NewReader(resp.Body), resp.Body}
 		}
 
 		response := &models.Response{
