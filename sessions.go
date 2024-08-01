@@ -470,7 +470,7 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 	if stream {
 		body := resp.Body
 		if encoding == "br" {
-			body = struct {
+			body = &struct {
 				io.Reader
 				io.Closer
 			}{brotli.NewReader(resp.Body), resp.Body}
