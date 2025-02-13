@@ -12,9 +12,7 @@ import (
 	utls "github.com/refraction-networking/utls"
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
-	"github.com/wangluozhe/chttp/http2"
 	"github.com/wangluozhe/requests/models"
-	ja3 "github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
 	"github.com/wangluozhe/requests/utils"
 	"io/ioutil"
@@ -106,21 +104,21 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 		if requestd_setting == "" {
 			return merged_setting
 		}
-	case *ja3.TLSExtensions:
-		merged_setting := session_setting.(*ja3.TLSExtensions)
+	case *http.TLSExtensions:
+		merged_setting := session_setting.(*http.TLSExtensions)
 		if merged_setting == nil {
 			return request_setting
 		}
-		requestd_setting := request_setting.(*ja3.TLSExtensions)
+		requestd_setting := request_setting.(*http.TLSExtensions)
 		if requestd_setting == nil {
 			return merged_setting
 		}
-	case *http2.HTTP2Settings:
-		merged_setting := session_setting.(*http2.HTTP2Settings)
+	case *http.HTTP2Settings:
+		merged_setting := session_setting.(*http.HTTP2Settings)
 		if merged_setting == nil {
 			return request_setting
 		}
-		requestd_setting := request_setting.(*http2.HTTP2Settings)
+		requestd_setting := request_setting.(*http.HTTP2Settings)
 		if requestd_setting == nil {
 			return merged_setting
 		}
@@ -135,7 +133,7 @@ var disableRedirect = func(request *http.Request, via []*http.Request) error {
 
 const (
 	DEFAULT_REDIRECT_LIMIT = 30 // 默认redirect最大次数
-	DEFAULT_TIMEOUT        = 10 // 默认client响应时间
+	DEFAULT_TIMEOUT        = 30 // 默认client响应时间
 )
 
 // 新建默认Session
@@ -153,25 +151,23 @@ func NewSession() *Session {
 	session.Cookies = cookies
 	session.transport = &http.Transport{
 		TLSClientConfig: &utls.Config{
-			InsecureSkipVerify: session.Verify,
-			OmitEmptyPsk:       true,
+			InsecureSkipVerify:     session.Verify,
+			ClientSessionCache:     utls.NewLRUClientSessionCache(0),
+			OmitEmptyPsk:           true,
+			SessionTicketsDisabled: true,
 		},
-		DisableKeepAlives: false, // 这里问题很严重
+		DisableKeepAlives: false,
 	}
 	session.request = &http.Request{}
 	session.client = &http.Client{
 		Transport:     session.transport,
 		CheckRedirect: nil,
-		Jar:           cookies,
 		Timeout:       DEFAULT_TIMEOUT * time.Second,
 	}
 	return session
 }
 
-// 新建默认Session，同上一模一样
-func DefaultSession() *Session {
-	return NewSession()
-}
+var defaultSession = NewSession()
 
 // Session结构体
 type Session struct {
@@ -184,11 +180,12 @@ type Session struct {
 	Cert          []string
 	Ja3           string
 	MaxRedirects  int
-	TLSExtensions *ja3.TLSExtensions
-	HTTP2Settings *http2.HTTP2Settings
+	TLSExtensions *http.TLSExtensions
+	HTTP2Settings *http.HTTP2Settings
 	transport     *http.Transport
 	request       *http.Request
 	client        *http.Client
+	ja3client     *http.Client
 }
 
 // 预请求处理
@@ -313,46 +310,6 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		s.transport.Proxy = nil
 	}
 
-	// 设置JA3指纹信息
-	ja3String := merge_setting(s.Ja3, req.Ja3).(string)
-	if ja3String != "" && strings.HasPrefix(preq.Url, "https") {
-		browser := ja3.Browser{
-			JA3:       ja3String,
-			UserAgent: s.Headers.Get("User-Agent"),
-		}
-
-		// 自定义TLS指纹信息
-		tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*ja3.TLSExtensions)
-		http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http2.HTTP2Settings)
-		if strings.Index(strings.Split(browser.JA3, ",")[2], "-41") != -1 {
-			config := s.transport.TLSClientConfig.Clone()
-			if config.ClientSessionCache == nil {
-				config.SessionTicketKey = [32]byte{}
-				config.OmitEmptyPsk = true
-				config.ClientSessionCache = utls.NewLRUClientSessionCache(0)
-				s.transport.TLSClientConfig = config
-			}
-		}
-
-		options := &ja3.Options{
-			Browser:       browser,
-			TLSExtensions: tlsExtensions,
-			HTTP2Settings: http2Settings,
-			ForceHTTP1:    req.ForceHTTP1,
-			TLSConfig:     s.transport.TLSClientConfig,
-		}
-
-		if proxies != "" {
-			options.Proxy = proxies
-		}
-
-		client, err := ja3.NewClient(options)
-		if err != nil {
-			return nil, err
-		}
-		s.client = &client
-	}
-
 	// 是否验证证书
 	verify := merge_setting(s.Verify, req.Verify).(bool)
 	s.transport.TLSClientConfig.InsecureSkipVerify = verify
@@ -381,6 +338,35 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		s.transport.TLSClientConfig.RootCAs = certPool
 		fmt.Println(certs)
 		s.transport.TLSClientConfig.Certificates = []utls.Certificate{certs}
+	}
+
+	// 设置JA3指纹信息
+	ja3String := merge_setting(s.Ja3, req.Ja3).(string)
+	if ja3String != "" && strings.HasPrefix(preq.Url, "https") && s.ja3client == nil {
+		if s.transport.TLSClientConfig.ClientSessionCache == nil {
+			s.transport.TLSClientConfig.ClientSessionCache = utls.NewLRUClientSessionCache(0)
+		}
+		if s.transport.TLSClientConfig.OmitEmptyPsk == false {
+			s.transport.TLSClientConfig.OmitEmptyPsk = true
+		}
+		if s.transport.TLSClientConfig.SessionTicketsDisabled == false {
+			s.transport.TLSClientConfig.SessionTicketsDisabled = true
+		}
+		if strings.Index(strings.Split(ja3String, ",")[2], "-41") != -1 {
+			s.transport.TLSClientConfig.SessionTicketsDisabled = false
+		}
+		if s.transport.H2Transport == nil {
+			var h2 *http.HTTP2Transport
+			h2, _ = http.HTTP2ConfigureTransports(s.transport)
+			s.transport.JA3 = ja3String
+			s.transport.UserAgent = s.Headers.Get("User-Agent")
+			// 自定义TLS指纹信息
+			tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*http.TLSExtensions)
+			http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http.HTTP2Settings)
+			h2.HTTP2Settings = http2Settings
+			s.transport.TLSExtensions = tlsExtensions
+			s.transport.H2Transport = h2
+		}
 	}
 
 	// 设置超时时间

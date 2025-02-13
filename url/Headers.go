@@ -19,110 +19,78 @@ func ParseHeaders(headers interface{}) *http.Header {
 	h := NewHeaders()
 	headerOrder := []string{}
 	pHeaderOrder := []string{}
-	switch headers.(type) {
+
+	addHeader := func(key, value string, isPseudo bool) {
+		key = strings.ToLower(key)
+		if isPseudo {
+			if SearchStrings((*h)[http.PHeaderOrderKey], key) == -1 || SearchStrings(pHeaderOrder, key) != -1 {
+				return
+			}
+			pHeaderOrder = append(pHeaderOrder, key)
+		} else {
+			h.Add(key, value)
+			headerOrder = append(headerOrder, key)
+		}
+	}
+
+	switch v := headers.(type) {
 	case string:
-		lines := strings.Split(headers.(string), "\n")
+		lines := strings.Split(v, "\n")
 		for _, header := range lines {
 			header = strings.TrimSpace(header)
-			if header == "" || strings.Index(header, "/") == 0 || strings.Index(header, "#") == 0 {
+			if header == "" || strings.HasPrefix(header, "/") || strings.HasPrefix(header, "#") {
 				continue
-			} else if strings.Index(header, ":") == 0 {
-				header = strings.TrimLeft(header, ":")
-				keyValue := strings.SplitN(header, ":", 2)
-				if len(keyValue) != 2 {
-					panic(errors.New("该字符串不符合http头部标准！"))
-				}
-				key := ":" + strings.ToLower(keyValue[0])
-				if SearchStrings((*h)[http.PHeaderOrderKey], key) == -1 || SearchStrings(pHeaderOrder, key) != -1 {
-					continue
-				}
-				pHeaderOrder = append(pHeaderOrder, key)
-			} else {
-				keyValue := strings.SplitN(header, ":", 2)
-				if len(keyValue) != 2 {
-					panic(errors.New("该字符串不符合http头部标准！"))
-				}
-				key := keyValue[0]
-				value := keyValue[1]
-				h.Set(key, value)
-				headerOrder = append(headerOrder, strings.ToLower(key))
 			}
+			keyValue := strings.SplitN(header, ":", 2)
+			if len(keyValue) != 2 {
+				panic(errors.New("该字符串不符合http头部标准！"))
+			}
+			addHeader(keyValue[0], keyValue[1], strings.HasPrefix(header, ":"))
 		}
 	case map[string]string:
-		for key, value := range headers.(map[string]string) {
-			key = strings.ToLower(key)
-			if strings.Index(key, ":") == 0 {
-				if SearchStrings((*h)[http.PHeaderOrderKey], key) == -1 || SearchStrings(pHeaderOrder, key) != -1 {
-					continue
-				}
-				pHeaderOrder = append(pHeaderOrder, key)
-			} else {
-				h.Add(key, value)
-				headerOrder = append(headerOrder, key)
-			}
+		for key, value := range v {
+			isPseudo := strings.HasPrefix(key, ":")
+			addHeader(key, value, isPseudo)
 		}
 	case map[string]interface{}:
-		for key, value := range headers.(map[string]interface{}) {
-			key = strings.ToLower(key)
-			if strings.Index(key, ":") == 0 {
-				if SearchStrings((*h)[http.PHeaderOrderKey], key) == -1 || SearchStrings(pHeaderOrder, key) != -1 {
-					continue
-				}
-				pHeaderOrder = append(pHeaderOrder, key)
-			} else {
-				switch value.(type) {
-				case string:
-					h.Add(key, value.(string))
-				case int:
-					h.Add(key, strconv.Itoa(value.(int)))
-				case float64:
-					h.Add(key, strconv.Itoa(int(value.(float64))))
-				case bool:
-					h.Add(key, strconv.FormatBool(value.(bool)))
-				}
-				headerOrder = append(headerOrder, key)
+		for key, value := range v {
+			isPseudo := strings.HasPrefix(key, ":")
+			switch val := value.(type) {
+			case string:
+				addHeader(key, val, isPseudo)
+			case int:
+				addHeader(key, strconv.Itoa(val), isPseudo)
+			case float64:
+				addHeader(key, strconv.Itoa(int(val)), isPseudo)
+			case bool:
+				addHeader(key, strconv.FormatBool(val), isPseudo)
 			}
 		}
 	case map[string][]string:
-		for key, values := range headers.(map[string][]string) {
-			key = strings.ToLower(key)
-			if strings.Index(key, ":") == 0 {
-				if SearchStrings((*h)[http.PHeaderOrderKey], key) == -1 || SearchStrings(pHeaderOrder, key) != -1 {
-					continue
-				}
-				pHeaderOrder = append(pHeaderOrder, key)
-			} else {
-				for _, value := range values {
-					h.Add(key, value)
-					headerOrder = append(headerOrder, key)
-				}
+		for key, values := range v {
+			isPseudo := strings.HasPrefix(key, ":")
+			for _, value := range values {
+				addHeader(key, value, isPseudo)
 			}
 		}
 	case map[string][]interface{}:
-		for key, values := range headers.(map[string]interface{}) {
-			key = strings.ToLower(key)
-			if strings.Index(key, ":") == 0 {
-				if SearchStrings((*h)[http.PHeaderOrderKey], key) == -1 || SearchStrings(pHeaderOrder, key) != -1 {
-					continue
+		for key, values := range v {
+			isPseudo := strings.HasPrefix(key, ":")
+			for _, value := range values {
+				switch val := value.(type) {
+				case string:
+					addHeader(key, val, isPseudo)
+				case int:
+					addHeader(key, strconv.Itoa(val), isPseudo)
+				case float64:
+					addHeader(key, strconv.Itoa(int(val)), isPseudo)
+				case bool:
+					addHeader(key, strconv.FormatBool(val), isPseudo)
 				}
-				pHeaderOrder = append(pHeaderOrder, key)
-			} else {
-				for _, value := range values.([]interface{}) {
-					switch value.(type) {
-					case string:
-						h.Add(key, value.(string))
-					case int:
-						h.Add(key, strconv.Itoa(value.(int)))
-					case float64:
-						h.Add(key, strconv.Itoa(int(value.(float64))))
-					case bool:
-						h.Add(key, strconv.FormatBool(value.(bool)))
-					}
-				}
-				headerOrder = append(headerOrder, key)
 			}
 		}
 	}
+
 	(*h)[http.HeaderOrderKey] = headerOrder
 	if len(pHeaderOrder) == 4 {
 		(*h)[http.PHeaderOrderKey] = pHeaderOrder

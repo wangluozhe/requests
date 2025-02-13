@@ -3,6 +3,7 @@ package transport
 import (
 	"fmt"
 	utls "github.com/refraction-networking/utls"
+	http "github.com/wangluozhe/chttp"
 	"strconv"
 )
 
@@ -81,6 +82,11 @@ var keyShareCurvesExtensions = map[string]utls.KeyShare{
 	"P384":   utls.KeyShare{Group: utls.CurveP384},
 	"P521":   utls.KeyShare{Group: utls.CurveP521},
 	"X25519": utls.KeyShare{Group: utls.X25519},
+	"4588":   utls.KeyShare{Group: utls.CurveID(0x6399)},
+	"25497":  utls.KeyShare{Group: utls.CurveID(0x6399)},
+	"65072":  utls.KeyShare{Group: utls.CurveID(0xfe30)},
+	"65073":  utls.KeyShare{Group: utls.CurveID(0xfe31)},
+	"65074":  utls.KeyShare{Group: utls.CurveID(0xfe32)},
 }
 
 type Extensions struct {
@@ -149,20 +155,8 @@ type Extensions struct {
 	NotUsedGREASE bool `json:"NotUsedGREASE"`
 }
 
-type TLSExtensions struct {
-	SupportedSignatureAlgorithms *utls.SignatureAlgorithmsExtension
-	CertCompressionAlgo          *utls.UtlsCompressCertExtension
-	RecordSizeLimit              *utls.FakeRecordSizeLimitExtension
-	DelegatedCredentials         *utls.DelegatedCredentialsExtension
-	SupportedVersions            *utls.SupportedVersionsExtension
-	PSKKeyExchangeModes          *utls.PSKKeyExchangeModesExtension
-	SignatureAlgorithmsCert      *utls.SignatureAlgorithmsCertExtension
-	KeyShareCurves               *utls.KeyShareExtension
-	NotUsedGREASE                bool
-}
-
-func ToTLSExtensions(e *Extensions) (extensions *TLSExtensions) {
-	extensions = &TLSExtensions{}
+func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
+	extensions = &http.TLSExtensions{}
 	if e == nil {
 		return extensions
 	}
@@ -233,7 +227,15 @@ func ToTLSExtensions(e *Extensions) (extensions *TLSExtensions) {
 	if e.KeyShareCurves != nil {
 		extensions.KeyShareCurves = &utls.KeyShareExtension{KeyShares: []utls.KeyShare{}}
 		for _, s := range e.KeyShareCurves {
-			extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, keyShareCurvesExtensions[s])
+			if val, ok := keyShareCurvesExtensions[s]; ok {
+				extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, val)
+			} else {
+				curveID, err := strconv.ParseInt(s, 10, 16)
+				if err != nil {
+					continue
+				}
+				extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, utls.KeyShare{Group: utls.CurveID(curveID), Data: []byte{0}})
+			}
 		}
 	}
 	if e.NotUsedGREASE != false {

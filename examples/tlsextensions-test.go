@@ -56,9 +56,11 @@ func main() {
 			"ECDSAWithSHA1",
 			"PKCS1WithSHA1",
 		},
-		//CertCompressionAlgo: []string{
-		//	"brotli",
-		//},
+		CertCompressionAlgo: []string{
+			"zlib",
+			"brotli",
+			"zstd",
+		},
 		RecordSizeLimit: 4001,
 		DelegatedCredentials: []string{
 			"ECDSAWithP256AndSHA256",
@@ -74,6 +76,7 @@ func main() {
 			"PskModeDHE",
 		},
 		KeyShareCurves: []string{
+			"4588",
 			"X25519",
 			"P256",
 		},
@@ -81,6 +84,14 @@ func main() {
 	tes := transport.ToTLSExtensions(es)
 	req.TLSExtensions = tes
 	r, err := requests.Get("https://tls.peet.ws/api/all", req)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(r.Request.Headers)
+	fmt.Println("url:", r.Url)
+	fmt.Println("headers:", r.Headers)
+	fmt.Println("text:", r.Text)
+	r, err = requests.Get("https://tls.peet.ws/api/all", req)
 	if err != nil {
 		fmt.Println(err)
 	}

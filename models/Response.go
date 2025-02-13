@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/bitly/go-simplejson"
 	"github.com/wangluozhe/chttp"
@@ -74,38 +73,29 @@ func (res Response) Ok() bool {
 	// 400 and 600 to see if there was a client error or a server error. If
 	// the status code is between 200 and 400, this will return True. This
 	// is **not** a check to see if the response code is ``200 OK``.
-	err := res.RaiseForStatus()
-	if err != nil {
-		return false
-	}
-	return true
+	return res.StatusCode >= 200 && res.StatusCode < 400
 }
 
+// 是否重定向
 func (res Response) IsRedirect() bool {
 	// True if this Response is a well-formed HTTP redirect that could have
 	// been processed automatically (by :meth:`Session.resolve_redirects`).
-	if res.Headers.Get("locaion") == "" || inRedirectStatusCodes(res.StatusCode) {
-		return false
-	}
-	return true
+	return res.Headers.Get("location") != "" && inRedirectStatusCodes(res.StatusCode)
 }
 
+// 是否永久重定向
 func (res Response) IsPermanentRedirect() bool {
 	// True if this Response one of the permanent versions of redirect.
-	if res.Headers.Get("locaion") == "" || inPermanentRedirectStatusCodes(res.StatusCode) {
-		return false
-	}
-	return true
+	return res.Headers.Get("location") != "" && inPermanentRedirectStatusCodes(res.StatusCode)
 }
 
 // 状态码是否错误
 func (res *Response) RaiseForStatus() error {
 	// Raises :class:`HTTPError`, if one occurred.
-	var err error
 	if res.StatusCode >= 400 && res.StatusCode < 500 {
-		err = errors.New(fmt.Sprintf("%d Client Error", res.StatusCode))
+		return fmt.Errorf("%d Client Error", res.StatusCode)
 	} else if res.StatusCode >= 500 && res.StatusCode < 600 {
-		err = errors.New(fmt.Sprintf("%d Server Error", res.StatusCode))
+		return fmt.Errorf("%d Server Error", res.StatusCode)
 	}
-	return err
+	return nil
 }

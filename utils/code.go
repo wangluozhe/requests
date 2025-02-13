@@ -16,26 +16,22 @@ import (
 
 // 只接受string和[]byte类型
 func stringAndByte(s interface{}) []byte {
-	var byte_s []byte
-	var err error
-	switch s.(type) {
+	switch v := s.(type) {
 	case string:
-		byte_s = []byte(s.(string))
+		return []byte(v)
 	case []byte:
-		byte_s = s.([]byte)
+		return v
 	default:
-		err = errors.New("Please check whether the type is string and []byte.")
-		panic(err)
+		panic(errors.New("Please check whether the type is string or []byte."))
 	}
-	return byte_s
 }
 
 // Hex编码
 func HexEncode(s interface{}) []byte {
 	byte_s := stringAndByte(s)
 	dst := make([]byte, hex.EncodedLen(len(byte_s)))
-	n := hex.Encode(dst, byte_s)
-	return dst[:n]
+	hex.Encode(dst, byte_s)
+	return dst
 }
 
 // Hex解码
@@ -77,8 +73,8 @@ func EncodeURI(s interface{}) string {
 	byte_s := stringAndByte(s)
 	es := EncodeURIComponent(string(byte_s))
 	ss := "!#$&'()*+,-./:=?@_~"
-	for i := 0; i < len(ss); i++ {
-		es = strings.ReplaceAll(es, "%"+strings.ToUpper(string(HexEncode(string(ss[i])))), string(ss[i]))
+	for _, char := range ss {
+		es = strings.ReplaceAll(es, "%"+strings.ToUpper(string(HexEncode(string(char)))), string(char))
 	}
 	return strings.ReplaceAll(es, "%3B", ";")
 }
@@ -88,12 +84,12 @@ func DecodeURI(s interface{}) string {
 	byte_s := stringAndByte(s)
 	es := string(byte_s)
 	ss := "!#$&'()*+,-./:=?@_~"
-	for i := 0; i < len(ss); i++ {
-		es = strings.ReplaceAll(es, "%"+strings.ToUpper(string(HexEncode(string(ss[i])))), "$"+"%"+strings.ToUpper(string(HexEncode(string(ss[i]))))+"$")
+	for _, char := range ss {
+		es = strings.ReplaceAll(es, "%"+strings.ToUpper(string(HexEncode(string(char)))), "$"+"%"+strings.ToUpper(string(HexEncode(string(char))))+"$")
 	}
 	es = DecodeURIComponent(es)
-	for i := 0; i < len(ss); i++ {
-		es = strings.ReplaceAll(es, "$"+string(ss[i])+"$", "%"+strings.ToUpper(string(HexEncode(string(ss[i])))))
+	for _, char := range ss {
+		es = strings.ReplaceAll(es, "$"+string(char)+"$", "%"+strings.ToUpper(string(HexEncode(string(char)))))
 	}
 	return es
 }
@@ -122,8 +118,7 @@ func Btoa(s interface{}) string {
 
 // Base64编码，同上
 func Base64Encode(s interface{}) string {
-	byte_s := stringAndByte(s)
-	return Btoa(byte_s)
+	return Btoa(s)
 }
 
 // Base64解码
@@ -138,47 +133,39 @@ func Atob(s interface{}) string {
 
 // Base64解码，同上
 func Base64Decode(s interface{}) string {
-	byte_s := stringAndByte(s)
-	return Atob(byte_s)
+	return Atob(s)
 }
 
 // 中文转Unicode
 func Escape(s interface{}) string {
 	byte_s := stringAndByte(s)
 	str := string(byte_s)
-	es := ""
-	for _, s := range str {
+	var es strings.Builder
+	for _, r := range str {
 		switch {
-		case s >= '0' && s <= '9':
-			es += string(s)
-		case s >= 'a' && s <= 'z':
-			es += string(s)
-		case s >= 'A' && s <= 'Z':
-			es += string(s)
-		case strings.Contains("*+-./@_", string(s)):
-			es += string(s)
-		case int(s) <= 127:
-			es += "%" + strings.ToUpper(string(HexEncode(string(s))))
-		case int(s) >= 128:
-			es += strings.ReplaceAll(strings.ReplaceAll(strconv.QuoteToASCII(string(s)), "\"", ""), "\\u", "%u")
+		case r >= '0' && r <= '9', r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', strings.ContainsRune("*+-./@_", r):
+			es.WriteRune(r)
+		case r <= 127:
+			es.WriteString("%" + strings.ToUpper(string(HexEncode(string(r)))))
+		default:
+			es.WriteString(strings.ReplaceAll(strings.ReplaceAll(strconv.QuoteToASCII(string(r)), "\"", ""), "\\u", "%u"))
 		}
 	}
-	return es
+	return es.String()
 }
 
 // Unicode转中文
 func UnEscape(s interface{}) string {
 	byte_s := stringAndByte(s)
 	str := string(byte_s)
-	re, _ := regexp.Compile("(%u)[0-9a-zA-Z]{4}")
+	re := regexp.MustCompile(`%u[0-9a-fA-F]{4}`)
 	str = re.ReplaceAllStringFunc(str, func(st string) string {
-		bs, _ := hex.DecodeString(strings.ReplaceAll(st, "%u", ""))
-		r := uint16(0)
+		bs, _ := hex.DecodeString(strings.TrimPrefix(st, "%u"))
+		r := rune(0)
 		binary.Read(bytes.NewReader(bs), binary.BigEndian, &r)
 		return string(r)
 	})
-	str = DecodeURIComponent(str)
-	return str
+	return DecodeURIComponent(str)
 }
 
 // Marshal 避免json.Marshal对 "<", ">", "&" 等字符进行HTML编码

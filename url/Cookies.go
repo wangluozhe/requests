@@ -14,100 +14,89 @@ func NewCookies() *cookiejar.Jar {
 	return cookies
 }
 
+func parseStringCookies(cookies string) []*http.Cookie {
+	var cookieList []*http.Cookie
+	for _, cookie := range strings.Split(cookies, ";") {
+		cookie = strings.TrimSpace(cookie)
+		if cookie == "" {
+			continue
+		}
+		keyValue := strings.SplitN(cookie, "=", 2)
+		if len(keyValue) != 2 {
+			panic(errors.New("该字符串不符合Cookies标准"))
+		}
+		cookieList = append(cookieList, &http.Cookie{
+			Name:  keyValue[0],
+			Value: keyValue[1],
+		})
+	}
+	return cookieList
+}
+
+func parseMapCookies(cookies map[string]interface{}) []*http.Cookie {
+	var cookieList []*http.Cookie
+	for key, value := range cookies {
+		var val string
+		switch v := value.(type) {
+		case string:
+			val = v
+		case int:
+			val = strconv.Itoa(v)
+		case float64:
+			val = strconv.Itoa(int(v))
+		case bool:
+			val = strconv.FormatBool(v)
+		default:
+			continue
+		}
+		if key == "" || val == "" {
+			continue
+		}
+		cookieList = append(cookieList, &http.Cookie{
+			Name:  key,
+			Value: val,
+		})
+	}
+	return cookieList
+}
+
 func ParseCookies(rawurl string, cookies interface{}) *cookiejar.Jar {
 	urls, _ := url.Parse(rawurl)
 	jar := NewCookies()
-	switch cookies.(type) {
+	var cookieList []*http.Cookie
+
+	switch v := cookies.(type) {
 	case string:
-		var cookie_list []*http.Cookie
-		cookieList := strings.Split(cookies.(string), ";")
-		for _, cookie := range cookieList {
-			cookie = strings.TrimSpace(cookie)
-			if cookie == "" {
-				continue
-			}
-			keyValue := strings.SplitN(cookie, "=", 2)
-			if len(keyValue) != 2 {
-				panic(errors.New("该字符串不符合Cookies标准"))
-			}
-			key := keyValue[0]
-			value := keyValue[1]
-			cookie_list = append(cookie_list, &http.Cookie{
-				Name:  key,
-				Value: value,
-			})
-		}
-		jar.SetCookies(urls, cookie_list)
+		cookieList = parseStringCookies(v)
 	case map[string]string:
-		var cookie_list []*http.Cookie
-		v := cookies.(map[string]string)
-		for key, value := range v {
-			value = strings.TrimSpace(value)
-			if key == "" || value == "" {
-				continue
-			}
-			cookie_list = append(cookie_list, &http.Cookie{
-				Name:  key,
-				Value: value,
-			})
-		}
-		jar.SetCookies(urls, cookie_list)
+		cookieList = parseMapCookies(convertToInterfaceMap(v))
 	case map[string]int:
-		var cookie_list []*http.Cookie
-		v := cookies.(map[string]int)
-		for key, value := range v {
-			val := strings.TrimSpace(strconv.Itoa(value))
-			if key == "" || val == "" {
-				continue
-			}
-			cookie_list = append(cookie_list, &http.Cookie{
-				Name:  key,
-				Value: val,
-			})
-		}
-		jar.SetCookies(urls, cookie_list)
+		cookieList = parseMapCookies(convertToInterfaceMap(v))
 	case map[string]float64:
-		var cookie_list []*http.Cookie
-		v := cookies.(map[string]float64)
-		for key, value := range v {
-			val := strings.TrimSpace(strconv.Itoa(int(value)))
-			if key == "" || val == "" {
-				continue
-			}
-			cookie_list = append(cookie_list, &http.Cookie{
-				Name:  key,
-				Value: val,
-			})
-		}
-		jar.SetCookies(urls, cookie_list)
+		cookieList = parseMapCookies(convertToInterfaceMap(v))
 	case map[string]interface{}:
-		var cookie_list []*http.Cookie
-		v := cookies.(map[string]interface{})
-		for key, value := range v {
-			switch value.(type) {
-			case string:
-				cookie_list = append(cookie_list, &http.Cookie{
-					Name:  key,
-					Value: value.(string),
-				})
-			case int:
-				cookie_list = append(cookie_list, &http.Cookie{
-					Name:  key,
-					Value: strconv.Itoa(value.(int)),
-				})
-			case float64:
-				cookie_list = append(cookie_list, &http.Cookie{
-					Name:  key,
-					Value: strconv.Itoa(int(value.(float64))),
-				})
-			case bool:
-				cookie_list = append(cookie_list, &http.Cookie{
-					Name:  key,
-					Value: strconv.FormatBool(value.(bool)),
-				})
-			}
-		}
-		jar.SetCookies(urls, cookie_list)
+		cookieList = parseMapCookies(v)
 	}
+
+	jar.SetCookies(urls, cookieList)
 	return jar
+}
+
+func convertToInterfaceMap(m interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	switch v := m.(type) {
+	case map[string]string:
+		for key, value := range v {
+			result[key] = value
+		}
+	case map[string]int:
+		for key, value := range v {
+			result[key] = value
+		}
+	case map[string]float64:
+		for key, value := range v {
+			result[key] = value
+		}
+	}
+	return result
 }

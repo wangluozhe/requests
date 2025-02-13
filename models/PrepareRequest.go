@@ -43,25 +43,20 @@ type PrepareRequest struct {
 
 // 预处理所有数据
 func (pr *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]interface{}, body string, auth []string) error {
-	err := pr.Prepare_method(method)
-	if err != nil {
+	if err := pr.Prepare_method(method); err != nil {
 		return err
 	}
-	err = pr.Prepare_url(url, params)
-	if err != nil {
+	if err := pr.Prepare_url(url, params); err != nil {
 		return err
 	}
-	err = pr.Prepare_headers(headers)
-	if err != nil {
+	if err := pr.Prepare_headers(headers); err != nil {
 		return err
 	}
 	pr.Prepare_cookies(cookies)
-	err = pr.Prepare_body(data, files, json, body)
-	if err != nil {
+	if err := pr.Prepare_body(data, files, json, body); err != nil {
 		return err
 	}
-	err = pr.Prepare_auth(auth, url)
-	if err != nil {
+	if err := pr.Prepare_auth(auth, url); err != nil {
 		return err
 	}
 	return nil
@@ -85,9 +80,9 @@ func (pr *PrepareRequest) Prepare_url(rawurl string, params *url.Params) error {
 		return err
 	}
 	if urls.Scheme == "" {
-		return errors.New(fmt.Sprintf("Invalid URL %s: No scheme supplied. Perhaps you meant http://%s?", rawurl, rawurl))
+		return fmt.Errorf("Invalid URL %s: No scheme supplied. Perhaps you meant http://%s?", rawurl, rawurl)
 	} else if urls.Host == "" {
-		return errors.New(fmt.Sprintf("Invalid URL %s: No host supplied", rawurl))
+		return fmt.Errorf("Invalid URL %s: No host supplied", rawurl)
 	}
 	if urls.Path == "" {
 		urls.Path = "/"
@@ -108,15 +103,11 @@ func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
 	pr.Headers = url.NewHeaders()
 	if headers != nil {
 		for key, values := range *headers {
-			if len(values) == 1 {
-				pr.Headers.Set(key, values[0])
-			} else {
-				for index, value := range values {
-					if index == 0 {
-						pr.Headers.Set(key, value)
-					} else {
-						pr.Headers.Add(key, value)
-					}
+			for index, value := range values {
+				if index == 0 {
+					pr.Headers.Set(key, value)
+				} else {
+					pr.Headers.Add(key, value)
 				}
 			}
 		}
@@ -126,9 +117,6 @@ func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
 
 // 预处理body
 func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}, bodys string) error {
-	var body string
-	var content_type string
-	var err error
 	if bodys != "" {
 		if pr.Headers.Get("content-type") == "" {
 			pr.Headers.Set("content-type", "text/plain")
@@ -136,41 +124,65 @@ func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json 
 		pr.Body = strings.NewReader(bodys)
 		return nil
 	}
+
+	var body string
+	var contentType string
+	var err error
+
 	if data == nil && json != nil {
-		content_type = "application/json"
-		json_byte, err := utils.Marshal(json) // 避免json.Marshal对 "<", ">", "&" 等字符进行HTML编码
-		//json_byte, err := jsonp.Marshal(json)
+		contentType = "application/json"
+		body, err = prepareJSONBody(json)
 		if err != nil {
 			return err
 		}
-		body = string(json_byte)
 	}
 	if files != nil {
-		var byteBuffer *bytes.Buffer
-		if data != nil {
-			for _, key := range data.Keys() {
-				files.AddField(key, data.Get(key))
-			}
-		}
-		byteBuffer, content_type, err = files.Encode()
-		var body_byte []byte
-		if byteBuffer != nil {
-			body_byte, _ = ioutil.ReadAll(byteBuffer)
-		}
-		body = string(body_byte)
+		body, contentType, err = prepareFilesBody(files, data)
 		if err != nil {
 			return err
 		}
 	} else if data != nil {
-		content_type = "application/x-www-form-urlencoded"
+		contentType = "application/x-www-form-urlencoded"
 		body = data.Encode()
 	}
 	//pr.prepare_content_length(body) // 禁用预处理body大小，防止dll无法正常访问
-	if content_type != "" && pr.Headers.Get("Content-Type") == "" {
-		pr.Headers.Set("Content-Type", content_type)
+	if contentType != "" && pr.Headers.Get("Content-Type") == "" {
+		pr.Headers.Set("Content-Type", contentType)
 	}
 	pr.Body = strings.NewReader(body)
 	return nil
+}
+
+// 预处理JSONBody
+func prepareJSONBody(json map[string]interface{}) (string, error) {
+	jsonByte, err := utils.Marshal(json) // 避免json.Marshal对 "<", ">", "&" 等字符进行HTML编码
+	if err != nil {
+		return "", err
+	}
+	return string(jsonByte), nil
+}
+
+// 预处理FilesBody
+func prepareFilesBody(files *url.Files, data *url.Values) (string, string, error) {
+	var byteBuffer *bytes.Buffer
+	var contentType string
+	var err error
+
+	if data != nil {
+		for _, key := range data.Keys() {
+			files.AddField(key, data.Get(key))
+		}
+	}
+	byteBuffer, contentType, err = files.Encode()
+	if err != nil {
+		return "", "", err
+	}
+
+	bodyByte, err := ioutil.ReadAll(byteBuffer)
+	if err != nil {
+		return "", "", err
+	}
+	return string(bodyByte), contentType, nil
 }
 
 // 预处理body大小

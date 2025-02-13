@@ -10,12 +10,8 @@ import (
 // 解析Values字符串为Values结构体
 func ParseValues(data interface{}) *Values {
 	p := NewValues()
-	switch data.(type) {
+	switch v := data.(type) {
 	case string:
-		v := data.(string)
-		if v == "" {
-			return p
-		}
 		for _, l := range strings.Split(v, "&") {
 			value := strings.SplitN(l, "=", 2)
 			if len(value) == 2 {
@@ -23,98 +19,37 @@ func ParseValues(data interface{}) *Values {
 			}
 		}
 	case map[string]string:
-		v := data.(map[string]string)
-		if v == nil {
-			return p
-		}
 		for key, value := range v {
 			p.Set(key, value)
 		}
 	case map[string][]string:
-		v := data.(map[string][]string)
-		if v == nil {
-			return p
-		}
 		for key, values := range v {
 			for _, value := range values {
 				p.Add(key, value)
 			}
 		}
 	case map[string]int:
-		v := data.(map[string]int)
-		if v == nil {
-			return p
-		}
 		for key, value := range v {
 			p.Set(key, strconv.Itoa(value))
 		}
 	case map[string][]int:
-		v := data.(map[string][]int)
-		if v == nil {
-			return p
-		}
 		for key, values := range v {
 			for _, value := range values {
 				p.Add(key, strconv.Itoa(value))
 			}
 		}
 	case map[string]float64:
-		v := data.(map[string]float64)
-		if v == nil {
-			return p
-		}
 		for key, value := range v {
 			p.Set(key, strconv.Itoa(int(value)))
 		}
 	case map[string][]float64:
-		v := data.(map[string][]float64)
-		if v == nil {
-			return p
-		}
 		for key, values := range v {
 			for _, value := range values {
 				p.Add(key, strconv.Itoa(int(value)))
 			}
 		}
 	case map[string]interface{}:
-		v := data.(map[string]interface{})
-		for key, value := range v {
-			switch value.(type) {
-			case string:
-				p.Add(key, value.(string))
-			case []string:
-				for _, s2 := range value.([]string) {
-					p.Add(key, s2)
-				}
-			case int:
-				p.Add(key, strconv.Itoa(value.(int)))
-			case []int:
-				for _, s2 := range value.([]int) {
-					p.Add(key, strconv.Itoa(s2))
-				}
-			case float64:
-				p.Add(key, strconv.Itoa(int(value.(float64))))
-			case []float64:
-				for _, s2 := range value.([]float64) {
-					p.Add(key, strconv.Itoa(int(s2)))
-				}
-			case bool:
-				p.Add(key, strconv.FormatBool(value.(bool)))
-			case []interface{}:
-				for _, s2 := range value.([]interface{}) {
-					switch s2.(type) {
-					case string:
-						p.Add(key, s2.(string))
-					case int:
-						p.Add(key, strconv.Itoa(s2.(int)))
-					case float64:
-						p.Add(key, strconv.Itoa(int(s2.(float64))))
-					case bool:
-						p.Add(key, strconv.FormatBool(s2.(bool)))
-					}
-				}
-			}
-		}
+		parseInterfaceMapValues(v, p)
 	}
 	return p
 }
@@ -122,6 +57,47 @@ func ParseValues(data interface{}) *Values {
 // 解析Data字符串为Values结构体
 func ParseData(data interface{}) *Values {
 	return ParseValues(data)
+}
+
+// 解析map[string]interface{}为Values结构体
+func parseInterfaceMapValues(data map[string]interface{}, p *Values) {
+	for key, value := range data {
+		switch v := value.(type) {
+		case string:
+			p.Add(key, v)
+		case []string:
+			for _, s2 := range v {
+				p.Add(key, s2)
+			}
+		case int:
+			p.Add(key, strconv.Itoa(v))
+		case []int:
+			for _, s2 := range v {
+				p.Add(key, strconv.Itoa(s2))
+			}
+		case float64:
+			p.Add(key, strconv.Itoa(int(v)))
+		case []float64:
+			for _, s2 := range v {
+				p.Add(key, strconv.Itoa(int(s2)))
+			}
+		case bool:
+			p.Add(key, strconv.FormatBool(v))
+		case []interface{}:
+			for _, s2 := range v {
+				switch s2 := s2.(type) {
+				case string:
+					p.Add(key, s2)
+				case int:
+					p.Add(key, strconv.Itoa(s2))
+				case float64:
+					p.Add(key, strconv.Itoa(int(s2)))
+				case bool:
+					p.Add(key, strconv.FormatBool(s2))
+				}
+			}
+		}
+	}
 }
 
 // 初始化Values结构体

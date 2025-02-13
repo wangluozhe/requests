@@ -19,9 +19,8 @@ func SearchStrings(str []string, substr string) int {
 // 解析params字符串为Params结构体
 func ParseParams(params interface{}) *Params {
 	p := NewParams()
-	switch params.(type) {
+	switch v := params.(type) {
 	case string:
-		v := params.(string)
 		if v == "" {
 			return p
 		}
@@ -32,94 +31,69 @@ func ParseParams(params interface{}) *Params {
 			}
 		}
 	case map[string]string:
-		v := params.(map[string]string)
-		if v == nil {
-			return p
-		}
 		for key, value := range v {
 			p.Set(key, value)
 		}
 	case map[string][]string:
-		v := params.(map[string][]string)
-		if v == nil {
-			return p
-		}
 		for key, values := range v {
 			for _, value := range values {
 				p.Add(key, value)
 			}
 		}
 	case map[string]int:
-		v := params.(map[string]int)
-		if v == nil {
-			return p
-		}
 		for key, value := range v {
 			p.Set(key, strconv.Itoa(value))
 		}
 	case map[string][]int:
-		v := params.(map[string][]int)
-		if v == nil {
-			return p
-		}
 		for key, values := range v {
 			for _, value := range values {
 				p.Add(key, strconv.Itoa(value))
 			}
 		}
 	case map[string]float64:
-		v := params.(map[string]float64)
-		if v == nil {
-			return p
-		}
 		for key, value := range v {
-			p.Set(key, strconv.Itoa(int(value)))
+			p.Set(key, strconv.FormatFloat(value, 'f', -1, 64))
 		}
 	case map[string][]float64:
-		v := params.(map[string][]float64)
-		if v == nil {
-			return p
-		}
 		for key, values := range v {
 			for _, value := range values {
-				p.Add(key, strconv.Itoa(int(value)))
+				p.Add(key, strconv.FormatFloat(value, 'f', -1, 64))
 			}
 		}
 	case map[string]interface{}:
-		v := params.(map[string]interface{})
 		for key, value := range v {
-			switch value.(type) {
+			switch v := value.(type) {
 			case string:
-				p.Add(key, value.(string))
+				p.Add(key, v)
 			case []string:
-				for _, s2 := range value.([]string) {
+				for _, s2 := range v {
 					p.Add(key, s2)
 				}
 			case int:
-				p.Add(key, strconv.Itoa(value.(int)))
+				p.Add(key, strconv.Itoa(v))
 			case []int:
-				for _, s2 := range value.([]int) {
+				for _, s2 := range v {
 					p.Add(key, strconv.Itoa(s2))
 				}
 			case float64:
-				p.Add(key, strconv.Itoa(int(value.(float64))))
+				p.Add(key, strconv.FormatFloat(v, 'f', -1, 64))
 			case []float64:
-				for _, s2 := range value.([]float64) {
-					p.Add(key, strconv.Itoa(int(s2)))
+				for _, s2 := range v {
+					p.Add(key, strconv.FormatFloat(s2, 'f', -1, 64))
 				}
 			case bool:
-				p.Add(key, strconv.FormatBool(value.(bool)))
+				p.Add(key, strconv.FormatBool(v))
 			case []interface{}:
-				for _, s2 := range value.([]interface{}) {
-					switch s2.(type) {
+				for _, s2 := range v {
+					switch s2 := s2.(type) {
 					case string:
-						p.Add(key, s2.(string))
+						p.Add(key, s2)
 					case int:
-						p.Add(key, strconv.Itoa(s2.(int)))
+						p.Add(key, strconv.Itoa(s2))
 					case float64:
-						p.Add(key, strconv.Itoa(int(s2.(float64))))
+						p.Add(key, strconv.FormatFloat(s2, 'f', -1, 64))
 					case bool:
-						p.Add(key, strconv.FormatBool(s2.(bool)))
+						p.Add(key, strconv.FormatBool(s2))
 					}
 				}
 			}
@@ -142,16 +116,14 @@ type Params struct {
 // 设置Params参数
 func (p *Params) Set(key, value string) {
 	p.values.Store(key, []string{value})
-	index := SearchStrings(p.indexKey, key)
-	if index == -1 {
+	if SearchStrings(p.indexKey, key) == -1 {
 		p.indexKey = append(p.indexKey, key)
 	}
 }
 
 // 获取Params参数值
 func (p *Params) Get(key string) string {
-	value, ok := p.values.Load(key)
-	if ok {
+	if value, ok := p.values.Load(key); ok {
 		return value.([]string)[0]
 	}
 	return ""
@@ -159,24 +131,20 @@ func (p *Params) Get(key string) string {
 
 // 添加Params参数
 func (p *Params) Add(key, value string) {
-	val, ok := p.values.Load(key)
-	if !ok {
-		p.Set(key, value)
-	} else {
+	if val, ok := p.values.Load(key); ok {
 		p.values.Store(key, append(val.([]string), value))
+	} else {
+		p.Set(key, value)
 	}
 }
 
 // 删除Params参数
 func (p *Params) Del(key string) {
-	_, ok := p.values.Load(key)
-	if !ok {
-		return
-	}
-	p.values.Delete(key)
-	index := SearchStrings(p.indexKey, key)
-	if index != -1 {
-		p.indexKey = append(p.indexKey[:index], p.indexKey[index+1:]...)
+	if _, ok := p.values.Load(key); ok {
+		p.values.Delete(key)
+		if index := SearchStrings(p.indexKey, key); index != -1 {
+			p.indexKey = append(p.indexKey[:index], p.indexKey[index+1:]...)
+		}
 	}
 }
 
@@ -187,11 +155,12 @@ func (p *Params) Keys() []string {
 
 // Params结构体转字符串
 func (p *Params) Encode() string {
-	text := []string{}
+	var text []string
 	for _, key := range p.indexKey {
-		item, _ := p.values.Load(key)
-		for _, value := range item.([]string) {
-			text = append(text, key+"="+value)
+		if item, ok := p.values.Load(key); ok {
+			for _, value := range item.([]string) {
+				text = append(text, key+"="+value)
+			}
 		}
 	}
 	return strings.Join(text, "&")
@@ -200,8 +169,8 @@ func (p *Params) Encode() string {
 // Params结构体返回map[string][]string
 func (p *Params) Values() map[string][]string {
 	values := make(map[string][]string)
-	p.values.Range(func(k, p interface{}) bool {
-		values[k.(string)] = p.([]string)
+	p.values.Range(func(k, v interface{}) bool {
+		values[k.(string)] = v.([]string)
 		return true
 	})
 	return values

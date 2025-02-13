@@ -46,5 +46,8 @@ func (u *URL) String() string {
 	if u.RawParams != "" {
 		s += "?" + u.RawParams
 	}
+	if u.RawFragment != "" {
+		s += "#" + u.RawFragment
+	}
 	return s
 }

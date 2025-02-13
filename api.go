@@ -1,13 +1,13 @@
 package requests
 
 import (
+	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/requests/models"
 	"github.com/wangluozhe/requests/url"
-	"net/http"
 )
 
 func Request(method, rawurl string, req *url.Request) (*models.Response, error) {
-	session := NewSession()
+	session := defaultSession
 	return session.Request(method, rawurl, req)
 }
 

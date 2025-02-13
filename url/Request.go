@@ -3,8 +3,6 @@ package url
 import (
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
-	"github.com/wangluozhe/chttp/http2"
-	ja3 "github.com/wangluozhe/requests/transport"
 	"time"
 )
 
@@ -31,6 +29,6 @@ type Request struct {
 	Cert           []string
 	Ja3            string
 	ForceHTTP1     bool
-	TLSExtensions  *ja3.TLSExtensions
-	HTTP2Settings  *http2.HTTP2Settings
+	TLSExtensions  *http.TLSExtensions
+	HTTP2Settings  *http.HTTP2Settings
 }

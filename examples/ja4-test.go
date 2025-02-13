@@ -90,7 +90,7 @@ func main() {
 	}
 	tes := transport.ToTLSExtensions(es)
 	req.TLSExtensions = tes
-	r, err := requests.Get("https://gospider2.gospiderb.asia:8998/", req)
+	r, err := requests.Get("https://tls.peet.ws/api/all", req)
 	if err != nil {
 		fmt.Println(err)
 	}
