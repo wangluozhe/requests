@@ -45,7 +45,6 @@ func GetSession(id string) *requests.Session {
 	}
 	sessionsPool[id] = sp
 	s := sp.Get().(*requests.Session)
-	sp.Put(s)
 	return s
 }
 
@@ -63,10 +62,12 @@ func request(requestParamsChar *C.char) *C.char {
 		return C.CString(fmt.Sprintf(errorFormat, "request->req, err := buildRequest(requestParams) failed: "+err.Error()))
 	}
 
-	response, err := GetSession(requestParams.Id).Request(requestParams.Method, requestParams.Url, req)
+	session := GetSession(requestParams.Id)
+	response, err := session.Request(requestParams.Method, requestParams.Url, req)
 	if err != nil {
 		return C.CString(fmt.Sprintf(errorFormat, "request->response, err := GetSession(requestParams.Id).Request(requestParams.Method, requestParams.Url, req) failed: "+err.Error()))
 	}
+	sessionsPool[requestParams.Id].Put(session)
 
 	responseParams := make(map[string]interface{})
 	responseParams["id"] = uuid.New().String()

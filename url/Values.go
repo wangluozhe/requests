@@ -102,23 +102,26 @@ func parseInterfaceMapValues(data map[string]interface{}, p *Values) {
 
 // 初始化Values结构体
 func NewValues() *Values {
-	return &Values{}
+	return &Values{mutex: &sync.RWMutex{}}
 }
 
 // 初始化Data结构体
 func NewData() *Values {
-	return &Values{}
+	return &Values{mutex: &sync.RWMutex{}}
 }
 
 // Values结构体
 type Values struct {
 	values   sync.Map
 	indexKey []string
+	mutex    *sync.RWMutex
 }
 
 // 设置Values参数
 func (v *Values) Set(key, value string) {
 	v.values.Store(key, []string{value})
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	index := SearchStrings(v.indexKey, key)
 	if index == -1 {
 		v.indexKey = append(v.indexKey, key)
@@ -151,6 +154,8 @@ func (v *Values) Del(key string) {
 		return
 	}
 	v.values.Delete(key)
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	index := SearchStrings(v.indexKey, key)
 	if index != -1 {
 		v.indexKey = append(v.indexKey[:index], v.indexKey[index+1:]...)
@@ -159,7 +164,9 @@ func (v *Values) Del(key string) {
 
 // 获取Values的所有Key
 func (v *Values) Keys() []string {
-	return v.indexKey
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
+	return append([]string(nil), v.indexKey...)
 }
 
 // Values结构体转字符串

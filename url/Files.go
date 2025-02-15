@@ -8,17 +8,21 @@ import (
 	"net/textproto"
 	"os"
 	"strings"
+	"sync"
 )
 
 // 初始化Files结构体
 func NewFiles() *Files {
-	return &Files{}
+	return &Files{
+		mutex: &sync.RWMutex{},
+	}
 }
 
 // Files结构体
 type Files struct {
 	files    []map[string][]map[string]string
 	indexKey []string
+	mutex    *sync.RWMutex
 }
 
 // Files设置Field参数
@@ -44,6 +48,8 @@ func (fs *Files) SetFile(name, fileName, filePath, contentType string) {
 
 // 设置参数的通用方法
 func (fs *Files) setParam(name string, param map[string]string) {
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
 	f := map[string][]map[string]string{
 		name: {param},
 	}
@@ -58,6 +64,8 @@ func (fs *Files) setParam(name string, param map[string]string) {
 
 // 获取Files参数值
 func (fs *Files) Get(name string) map[string]string {
+	fs.mutex.RLock()
+	defer fs.mutex.RUnlock()
 	if len(fs.files) != 0 {
 		index := SearchStrings(fs.indexKey, name)
 		if index != -1 {
@@ -90,6 +98,8 @@ func (fs *Files) AddFile(name, fileName, filePath, contentType string) {
 
 // 添加参数的通用方法
 func (fs *Files) addParam(name string, param map[string]string) {
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
 	index := SearchStrings(fs.indexKey, name)
 	if len(fs.indexKey) == 0 || index == -1 {
 		fs.setParam(name, param)
@@ -100,6 +110,8 @@ func (fs *Files) addParam(name string, param map[string]string) {
 
 // 删除Files参数
 func (fs *Files) Del(name string) bool {
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
 	index := SearchStrings(fs.indexKey, name)
 	if len(fs.indexKey) == 0 || index == -1 {
 		return false
@@ -111,6 +123,8 @@ func (fs *Files) Del(name string) bool {
 
 // Files结构体转FormFile
 func (fs *Files) Encode() (*bytes.Buffer, string, error) {
+	fs.mutex.RLock()
+	defer fs.mutex.RUnlock()
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 

@@ -104,18 +104,21 @@ func ParseParams(params interface{}) *Params {
 
 // 初始化Params结构体
 func NewParams() *Params {
-	return &Params{}
+	return &Params{mutex: &sync.RWMutex{}}
 }
 
 // Params结构体
 type Params struct {
 	values   sync.Map
 	indexKey []string
+	mutex    *sync.RWMutex
 }
 
 // 设置Params参数
 func (p *Params) Set(key, value string) {
 	p.values.Store(key, []string{value})
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	if SearchStrings(p.indexKey, key) == -1 {
 		p.indexKey = append(p.indexKey, key)
 	}
@@ -140,6 +143,8 @@ func (p *Params) Add(key, value string) {
 
 // 删除Params参数
 func (p *Params) Del(key string) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	if _, ok := p.values.Load(key); ok {
 		p.values.Delete(key)
 		if index := SearchStrings(p.indexKey, key); index != -1 {
@@ -150,7 +155,9 @@ func (p *Params) Del(key string) {
 
 // 获取Params的所有Key
 func (p *Params) Keys() []string {
-	return p.indexKey
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return append([]string(nil), p.indexKey...)
 }
 
 // Params结构体转字符串

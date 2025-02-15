@@ -13,7 +13,10 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+var mutex = &sync.RWMutex{}
 
 // HTTP的所有请求方法
 var MethodNames = []string{http.MethodGet, http.MethodPost, http.MethodOptions, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodConnect, http.MethodTrace}
@@ -102,6 +105,7 @@ func (pr *PrepareRequest) Prepare_url(rawurl string, params *url.Params) error {
 func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
 	pr.Headers = url.NewHeaders()
 	if headers != nil {
+		mutex.RLock()
 		for key, values := range *headers {
 			for index, value := range values {
 				if index == 0 {
@@ -111,6 +115,7 @@ func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
 				}
 			}
 		}
+		mutex.RUnlock()
 	}
 	return nil
 }

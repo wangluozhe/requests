@@ -19,8 +19,11 @@ import (
 	"log"
 	url2 "net/url"
 	"strings"
+	"sync"
 	"time"
 )
+
+var mutex = &sync.RWMutex{}
 
 // 默认User—Agent
 func default_user_agent() string {
@@ -237,6 +240,8 @@ func (s *Session) Request(method, rawurl string, request *url.Request) (*models.
 		Body:    request.Body,
 		Auth:    request.Auth,
 	}
+	mutex.Lock()
+	defer mutex.Unlock()
 	preq, err := s.Prepare_request(req)
 	if err != nil {
 		return nil, err
@@ -336,7 +341,6 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			return nil, errors.New("failed to parse root certificate")
 		}
 		s.transport.TLSClientConfig.RootCAs = certPool
-		fmt.Println(certs)
 		s.transport.TLSClientConfig.Certificates = []utls.Certificate{certs}
 	}
 

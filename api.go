@@ -7,8 +7,7 @@ import (
 )
 
 func Request(method, rawurl string, req *url.Request) (*models.Response, error) {
-	session := defaultSession
-	return session.Request(method, rawurl, req)
+	return defaultSession.Request(method, rawurl, req)
 }
 
 func Get(rawurl string, req *url.Request) (*models.Response, error) {

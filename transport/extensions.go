@@ -5,7 +5,10 @@ import (
 	utls "github.com/refraction-networking/utls"
 	http "github.com/wangluozhe/chttp"
 	"strconv"
+	"sync"
 )
+
+var mutex = &sync.RWMutex{}
 
 var supportedSignatureAlgorithmsExtensions = map[string]utls.SignatureScheme{
 	"PKCS1WithSHA256":                     utls.PKCS1WithSHA256,
@@ -162,6 +165,7 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 	}
 	if e.SupportedSignatureAlgorithms != nil {
 		extensions.SupportedSignatureAlgorithms = &utls.SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
+		mutex.RLock()
 		for _, s := range e.SupportedSignatureAlgorithms {
 			var signature_algorithms utls.SignatureScheme
 			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
@@ -172,12 +176,15 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 			}
 			extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms = append(extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms, signature_algorithms)
 		}
+		mutex.RUnlock()
 	}
 	if e.CertCompressionAlgo != nil {
 		extensions.CertCompressionAlgo = &utls.UtlsCompressCertExtension{Algorithms: []utls.CertCompressionAlgo{}}
+		mutex.RLock()
 		for _, s := range e.CertCompressionAlgo {
 			extensions.CertCompressionAlgo.Algorithms = append(extensions.CertCompressionAlgo.Algorithms, certCompressionAlgoExtensions[s])
 		}
+		mutex.RUnlock()
 	}
 	if e.RecordSizeLimit != 0 {
 		hexStr := fmt.Sprintf("0x%v", e.RecordSizeLimit)
@@ -186,6 +193,7 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 	}
 	if e.DelegatedCredentials != nil {
 		extensions.DelegatedCredentials = &utls.DelegatedCredentialsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
+		mutex.RLock()
 		for _, s := range e.DelegatedCredentials {
 			var signature_algorithms utls.SignatureScheme
 			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
@@ -197,21 +205,27 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 			}
 			extensions.DelegatedCredentials.SupportedSignatureAlgorithms = append(extensions.DelegatedCredentials.SupportedSignatureAlgorithms, signature_algorithms)
 		}
+		mutex.RUnlock()
 	}
 	if e.SupportedVersions != nil {
 		extensions.SupportedVersions = &utls.SupportedVersionsExtension{Versions: []uint16{}}
+		mutex.RLock()
 		for _, s := range e.SupportedVersions {
 			extensions.SupportedVersions.Versions = append(extensions.SupportedVersions.Versions, supportedVersionsExtensions[s])
 		}
+		mutex.RUnlock()
 	}
 	if e.PSKKeyExchangeModes != nil {
 		extensions.PSKKeyExchangeModes = &utls.PSKKeyExchangeModesExtension{Modes: []uint8{}}
+		mutex.RLock()
 		for _, s := range e.PSKKeyExchangeModes {
 			extensions.PSKKeyExchangeModes.Modes = append(extensions.PSKKeyExchangeModes.Modes, pskKeyExchangeModesExtensions[s])
 		}
+		mutex.RUnlock()
 	}
 	if e.SignatureAlgorithmsCert != nil {
 		extensions.SignatureAlgorithmsCert = &utls.SignatureAlgorithmsCertExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
+		mutex.RLock()
 		for _, s := range e.SignatureAlgorithmsCert {
 			var signature_algorithms_cert utls.SignatureScheme
 			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
@@ -223,9 +237,11 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 			}
 			extensions.SignatureAlgorithmsCert.SupportedSignatureAlgorithms = append(extensions.SignatureAlgorithmsCert.SupportedSignatureAlgorithms, signature_algorithms_cert)
 		}
+		mutex.RUnlock()
 	}
 	if e.KeyShareCurves != nil {
 		extensions.KeyShareCurves = &utls.KeyShareExtension{KeyShares: []utls.KeyShare{}}
+		mutex.RLock()
 		for _, s := range e.KeyShareCurves {
 			if val, ok := keyShareCurvesExtensions[s]; ok {
 				extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, val)
@@ -237,6 +253,7 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 				extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, utls.KeyShare{Group: utls.CurveID(curveID), Data: []byte{0}})
 			}
 		}
+		mutex.RUnlock()
 	}
 	if e.NotUsedGREASE != false {
 		extensions.NotUsedGREASE = e.NotUsedGREASE

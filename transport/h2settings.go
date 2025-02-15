@@ -52,18 +52,21 @@ func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http.HTTP2Settings)
 				}
 			}
 		} else {
+			mutex.RLock()
 			for id, val := range h2Settings.Settings {
 				http2Settings.Settings = append(http2Settings.Settings, http.HTTP2Setting{
 					ID:  settings[id],
 					Val: uint32(val),
 				})
 			}
+			mutex.RUnlock()
 		}
 	}
 	if h2Settings.ConnectionFlow != 0 {
 		http2Settings.ConnectionFlow = h2Settings.ConnectionFlow
 	}
 	if h2Settings.HeaderPriority != nil {
+		mutex.RLock()
 		var weight int
 		var streamDep int
 		w := h2Settings.HeaderPriority["weight"]
@@ -94,9 +97,11 @@ func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http.HTTP2Settings)
 			}
 		}
 		http2Settings.HeaderPriority = priorityParam
+		mutex.RUnlock()
 	}
 	if h2Settings.PriorityFrames != nil {
 		for _, frame := range h2Settings.PriorityFrames {
+			mutex.RLock()
 			var weight int
 			var streamDep int
 			var streamID int
@@ -141,6 +146,7 @@ func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http.HTTP2Settings)
 				},
 				HTTP2PriorityParam: priorityParam,
 			})
+			mutex.RUnlock()
 		}
 	}
 	return http2Settings
