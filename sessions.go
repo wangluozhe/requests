@@ -188,7 +188,6 @@ type Session struct {
 	transport     *http.Transport
 	request       *http.Request
 	client        *http.Client
-	ja3client     *http.Client
 }
 
 // 预请求处理
@@ -346,7 +345,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 	// 设置JA3指纹信息
 	ja3String := merge_setting(s.Ja3, req.Ja3).(string)
-	if ja3String != "" && strings.HasPrefix(preq.Url, "https") && s.ja3client == nil {
+	if ja3String != "" && strings.HasPrefix(preq.Url, "https") && s.transport.H2Transport == nil {
 		if s.transport.TLSClientConfig.ClientSessionCache == nil {
 			s.transport.TLSClientConfig.ClientSessionCache = utls.NewLRUClientSessionCache(0)
 		}
@@ -371,6 +370,14 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			s.transport.TLSExtensions = tlsExtensions
 			s.transport.H2Transport = h2
 		}
+	} else if ja3String != "" && strings.HasPrefix(preq.Url, "https") && s.transport.H2Transport != nil {
+		s.transport.JA3 = ja3String
+		s.transport.UserAgent = s.Headers.Get("User-Agent")
+		// 自定义TLS指纹信息
+		tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*http.TLSExtensions)
+		http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http.HTTP2Settings)
+		s.transport.H2Transport.(*http.HTTP2Transport).HTTP2Settings = http2Settings
+		s.transport.TLSExtensions = tlsExtensions
 	}
 
 	// 设置超时时间
