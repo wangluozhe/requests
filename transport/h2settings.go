@@ -2,6 +2,8 @@ package transport
 
 import (
 	http "github.com/wangluozhe/chttp"
+	"strconv"
+	"strings"
 )
 
 var settings = map[string]http.HTTP2SettingID{
@@ -11,6 +13,7 @@ var settings = map[string]http.HTTP2SettingID{
 	"INITIAL_WINDOW_SIZE":    http.HTTP2SettingInitialWindowSize,
 	"MAX_FRAME_SIZE":         http.HTTP2SettingMaxFrameSize,
 	"MAX_HEADER_LIST_SIZE":   http.HTTP2SettingMaxHeaderListSize,
+	"NO_RFC7540_PRIORITIES":  http.HTTP2SettingID(0x9),
 }
 
 type H2Settings struct {
@@ -33,6 +36,17 @@ type H2Settings struct {
 	PriorityFrames []map[string]interface{} `json:"PriorityFrames"`
 }
 
+func covertSettingNameToID(name string) http.HTTP2SettingID {
+	if id, ok := settings[name]; ok {
+		return id
+	}
+	if strings.Index(name, "UNKNOWN_SETTING_") != -1 {
+		name = strings.Replace(name, "UNKNOWN_SETTING_", "", -1)
+	}
+	id, _ := strconv.Atoi(name)
+	return http.HTTP2SettingID(id)
+}
+
 func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http.HTTP2Settings) {
 	http2Settings = &http.HTTP2Settings{
 		Settings:       nil,
@@ -46,7 +60,7 @@ func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http.HTTP2Settings)
 				val := h2Settings.Settings[orderKey]
 				if val != 0 || orderKey == "ENABLE_PUSH" {
 					http2Settings.Settings = append(http2Settings.Settings, http.HTTP2Setting{
-						ID:  settings[orderKey],
+						ID:  covertSettingNameToID(orderKey),
 						Val: uint32(val),
 					})
 				}
@@ -55,7 +69,7 @@ func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http.HTTP2Settings)
 			mutex.RLock()
 			for id, val := range h2Settings.Settings {
 				http2Settings.Settings = append(http2Settings.Settings, http.HTTP2Setting{
-					ID:  settings[id],
+					ID:  covertSettingNameToID(id),
 					Val: uint32(val),
 				})
 			}
