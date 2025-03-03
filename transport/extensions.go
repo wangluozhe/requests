@@ -85,7 +85,7 @@ var keyShareCurvesExtensions = map[string]utls.KeyShare{
 	"P384":   utls.KeyShare{Group: utls.CurveP384},
 	"P521":   utls.KeyShare{Group: utls.CurveP521},
 	"X25519": utls.KeyShare{Group: utls.X25519},
-	"4588":   utls.KeyShare{Group: utls.CurveID(0x6399)},
+	"4588":   utls.KeyShare{Group: utls.X25519MLKEM768},
 	"25497":  utls.KeyShare{Group: utls.CurveID(0x6399)},
 	"65072":  utls.KeyShare{Group: utls.CurveID(0xfe30)},
 	"65073":  utls.KeyShare{Group: utls.CurveID(0xfe31)},
