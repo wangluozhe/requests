@@ -415,7 +415,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 				p := models.NewPrepareRequest()
 				c, _ := cookiejar.New(nil)
 				c.SetCookies(request.URL, request.Cookies())
-				p.Prepare(request.Method, request.URL.String(), nil, &request.Header, c, nil, nil, nil, "", nil)
+				p.Prepare(request.Method, request.URL.String(), nil, &request.Header, c, nil, nil, nil, nil, nil)
 				r, err := s.buildResponse(request.Response, p, &url.Request{})
 				if err != nil {
 					return err

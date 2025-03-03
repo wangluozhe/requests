@@ -45,7 +45,7 @@ type PrepareRequest struct {
 }
 
 // 预处理所有数据
-func (pr *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]interface{}, body string, auth []string) error {
+func (pr *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]interface{}, body io.Reader, auth []string) error {
 	if err := pr.Prepare_method(method); err != nil {
 		return err
 	}
@@ -121,12 +121,12 @@ func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
 }
 
 // 预处理body
-func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}, bodys string) error {
-	if bodys != "" {
+func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}, bodys io.Reader) error {
+	if bodys != nil {
 		if pr.Headers.Get("content-type") == "" {
 			pr.Headers.Set("content-type", "text/plain")
 		}
-		pr.Body = strings.NewReader(bodys)
+		pr.Body = bodys
 		return nil
 	}
 

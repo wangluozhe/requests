@@ -110,19 +110,29 @@ func Base32Decode(s interface{}) string {
 	return string(str)
 }
 
-// Base64编码
-func Btoa(s interface{}) string {
+// Base32解码为[]byte
+func Base32DecodeToBytes(s interface{}) []byte {
 	byte_s := stringAndByte(s)
-	return base64.StdEncoding.EncodeToString(byte_s)
+	str, err := base32.StdEncoding.DecodeString(string(byte_s))
+	if err != nil {
+		panic(err)
+	}
+	return str
 }
 
 // Base64编码，同上
 func Base64Encode(s interface{}) string {
-	return Btoa(s)
+	byte_s := stringAndByte(s)
+	return base64.StdEncoding.EncodeToString(byte_s)
 }
 
-// Base64解码
-func Atob(s interface{}) string {
+// Base64编码
+func Btoa(s interface{}) string {
+	return Base64Encode(s)
+}
+
+// Base64解码，同上
+func Base64Decode(s interface{}) string {
 	byte_s := stringAndByte(s)
 	str, err := base64.StdEncoding.DecodeString(string(byte_s))
 	if err != nil {
@@ -131,9 +141,19 @@ func Atob(s interface{}) string {
 	return string(str)
 }
 
-// Base64解码，同上
-func Base64Decode(s interface{}) string {
-	return Atob(s)
+// Base64解码为[]byte
+func Base64DecodeToBytes(s interface{}) []byte {
+	byte_s := stringAndByte(s)
+	str, err := base64.StdEncoding.DecodeString(string(byte_s))
+	if err != nil {
+		panic(err)
+	}
+	return str
+}
+
+// Base64解码
+func Atob(s interface{}) string {
+	return Base64Decode(s)
 }
 
 // 中文转Unicode

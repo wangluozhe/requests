@@ -4,6 +4,7 @@ import (
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
 	"github.com/wangluozhe/requests/url"
+	"io"
 )
 
 type Request struct {
@@ -14,7 +15,7 @@ type Request struct {
 	Cookies *cookiejar.Jar
 	Data    *url.Values
 	Files   *url.Files
-	Body    string
+	Body    io.Reader
 	Json    map[string]interface{}
 	Auth    []string
 }

@@ -3,6 +3,7 @@ package url
 import (
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
+	"io"
 	"time"
 )
 
@@ -20,7 +21,7 @@ type Request struct {
 	Data           *Values
 	Files          *Files
 	Json           map[string]interface{}
-	Body           string
+	Body           io.Reader
 	Auth           []string
 	Timeout        time.Duration
 	AllowRedirects bool
