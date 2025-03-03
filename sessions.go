@@ -367,8 +367,25 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*http.TLSExtensions)
 			http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http.HTTP2Settings)
 			h2.HTTP2Settings = http2Settings
-			s.transport.TLSExtensions = tlsExtensions
-			s.transport.H2Transport = h2
+			if http2Settings != nil {
+				if http2Settings.Settings != nil {
+					for _, setting := range http2Settings.Settings {
+						switch setting.ID {
+						case http.HTTP2SettingHeaderTableSize:
+							h2.MaxEncoderHeaderTableSize = setting.Val
+							h2.MaxDecoderHeaderTableSize = setting.Val
+						case http.HTTP2SettingMaxConcurrentStreams:
+							h2.StrictMaxConcurrentStreams = true
+						case http.HTTP2SettingMaxFrameSize:
+							h2.MaxReadFrameSize = setting.Val
+						case http.HTTP2SettingMaxHeaderListSize:
+							h2.MaxHeaderListSize = setting.Val
+						}
+					}
+				}
+				s.transport.TLSExtensions = tlsExtensions
+				s.transport.H2Transport = h2
+			}
 		}
 	} else if ja3String != "" && strings.HasPrefix(preq.Url, "https") && s.transport.H2Transport != nil {
 		s.transport.JA3 = ja3String
