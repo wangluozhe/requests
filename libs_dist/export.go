@@ -183,6 +183,9 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 	}
 
 	if requestParams.PseudoHeaderOrder != nil {
+		if req.Headers == nil {
+			req.Headers = url.NewHeaders()
+		}
 		(*req.Headers)[http.PHeaderOrderKey] = requestParams.PseudoHeaderOrder
 	}
 

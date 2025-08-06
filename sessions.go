@@ -8,6 +8,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	url2 "net/url"
+	"strings"
+	"time"
+
 	"github.com/andybalholm/brotli"
 	utls "github.com/refraction-networking/utls"
 	"github.com/wangluozhe/chttp"
@@ -15,15 +22,7 @@ import (
 	"github.com/wangluozhe/requests/models"
 	"github.com/wangluozhe/requests/url"
 	"github.com/wangluozhe/requests/utils"
-	"io/ioutil"
-	"log"
-	url2 "net/url"
-	"strings"
-	"sync"
-	"time"
 )
-
-var mutex = &sync.RWMutex{}
 
 // 默认User—Agent
 func default_user_agent() string {
@@ -34,9 +33,6 @@ func default_user_agent() string {
 func default_headers() *http.Header {
 	headers := url.NewHeaders()
 	headers.Set("User-Agent", default_user_agent())
-	headers.Set("Accept-Encoding", "gzip, deflate, br")
-	headers.Set("Accept", "*/*")
-	headers.Set("Connection", "keep-alive")
 	return headers
 }
 
@@ -194,7 +190,9 @@ type Session struct {
 func (s *Session) Prepare_request(request *models.Request) (*models.PrepareRequest, error) {
 	var err error
 	params := merge_setting(request.Params, s.Params).(*url.Params)
-	headers := merge_setting(request.Headers, s.Headers).(*http.Header)
+	h := request.Headers.Clone()
+	s_h := s.Headers.Clone()
+	headers := merge_setting(&h, &s_h).(*http.Header)
 	c := request.Cookies
 	if c == nil {
 		c, _ = cookiejar.New(nil)
@@ -239,8 +237,6 @@ func (s *Session) Request(method, rawurl string, request *url.Request) (*models.
 		Body:    request.Body,
 		Auth:    request.Auth,
 	}
-	mutex.Lock()
-	defer mutex.Unlock()
 	preq, err := s.Prepare_request(req)
 	if err != nil {
 		return nil, err
@@ -383,9 +379,9 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 						}
 					}
 				}
-				s.transport.TLSExtensions = tlsExtensions
-				s.transport.H2Transport = h2
 			}
+			s.transport.H2Transport = h2
+			s.transport.TLSExtensions = tlsExtensions
 		}
 	} else if ja3String != "" && strings.HasPrefix(preq.Url, "https") && s.transport.H2Transport != nil {
 		s.transport.JA3 = ja3String
@@ -444,15 +440,17 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 	// 设置有序请求头
 	if req.Headers != nil {
+		preqHeaders := preq.Headers.Clone()
 		if (*req.Headers)[http.HeaderOrderKey] != nil {
-			(*preq.Headers)[http.HeaderOrderKey] = (*req.Headers)[http.HeaderOrderKey]
+			preqHeaders[http.HeaderOrderKey] = (*req.Headers)[http.HeaderOrderKey]
 		}
 		if (*req.Headers)[http.PHeaderOrderKey] != nil {
-			(*preq.Headers)[http.PHeaderOrderKey] = (*req.Headers)[http.PHeaderOrderKey]
+			preqHeaders[http.PHeaderOrderKey] = (*req.Headers)[http.PHeaderOrderKey]
 		}
 		if (*req.Headers)[http.UnChangedHeaderKey] != nil {
-			(*preq.Headers)[http.UnChangedHeaderKey] = (*req.Headers)[http.UnChangedHeaderKey]
+			preqHeaders[http.UnChangedHeaderKey] = (*req.Headers)[http.UnChangedHeaderKey]
 		}
+		preq.Headers = &preqHeaders
 	}
 
 	s.request, err = http.NewRequest(preq.Method, preq.Url, preq.Body)
@@ -477,16 +475,34 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 // 构建response参数
 func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+	if req.Stream {
+		response := &models.Response{
+			Url:        preq.Url,
+			Headers:    resp.Header,
+			Cookies:    resp.Cookies(),
+			Text:       "",
+			Content:    nil,
+			Body:       resp.Body,
+			StatusCode: resp.StatusCode,
+			History:    []*models.Response{},
+			Request:    req,
+		}
+		if resp.Cookies() != nil {
+			u, _ := url2.Parse(preq.Url)
+			s.Cookies.SetCookies(u, resp.Cookies())
+		}
+		return response, nil
+	}
 	if resp.Body != nil {
 		defer resp.Body.Close()
 	}
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	encoding := resp.Header.Get("Content-Encoding")
 	DecompressBody(&content, encoding)
-	body := ioutil.NopCloser(bytes.NewReader(content))
+	body := io.NopCloser(bytes.NewReader(content))
 	response := &models.Response{
 		Url:        preq.Url,
 		Headers:    resp.Header,
@@ -530,7 +546,7 @@ func decodeGZip(content *[]byte) error {
 		return err
 	}
 	defer r.Close()
-	*content, err = ioutil.ReadAll(r)
+	*content, err = io.ReadAll(r)
 	if err != nil {
 		return err
 	}
@@ -545,7 +561,7 @@ func decodeDeflate(content *[]byte) error {
 	}
 	r := flate.NewReader(bytes.NewReader(*content))
 	defer r.Close()
-	*content, err = ioutil.ReadAll(r)
+	*content, err = io.ReadAll(r)
 	if err != nil {
 		return err
 	}

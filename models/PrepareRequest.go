@@ -5,18 +5,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
+	"strconv"
+	"strings"
+
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
 	"github.com/wangluozhe/requests/url"
 	"github.com/wangluozhe/requests/utils"
-	"io"
-	"io/ioutil"
-	"strconv"
-	"strings"
-	"sync"
 )
-
-var mutex = &sync.RWMutex{}
 
 // HTTP的所有请求方法
 var MethodNames = []string{http.MethodGet, http.MethodPost, http.MethodOptions, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodConnect, http.MethodTrace}
@@ -105,17 +102,7 @@ func (pr *PrepareRequest) Prepare_url(rawurl string, params *url.Params) error {
 func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
 	pr.Headers = url.NewHeaders()
 	if headers != nil {
-		mutex.RLock()
-		for key, values := range *headers {
-			for index, value := range values {
-				if index == 0 {
-					pr.Headers.Set(key, value)
-				} else {
-					pr.Headers.Add(key, value)
-				}
-			}
-		}
-		mutex.RUnlock()
+		pr.Headers = headers
 	}
 	return nil
 }
@@ -124,7 +111,7 @@ func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
 func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}, bodys io.Reader) error {
 	if bodys != nil {
 		if pr.Headers.Get("content-type") == "" {
-			pr.Headers.Set("content-type", "text/plain")
+			pr.Headers.Set("content-type", "application/octet-stream")
 		}
 		pr.Body = bodys
 		return nil
@@ -183,7 +170,7 @@ func prepareFilesBody(files *url.Files, data *url.Values) (string, string, error
 		return "", "", err
 	}
 
-	bodyByte, err := ioutil.ReadAll(byteBuffer)
+	bodyByte, err := io.ReadAll(byteBuffer)
 	if err != nil {
 		return "", "", err
 	}

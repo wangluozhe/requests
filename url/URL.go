@@ -2,6 +2,7 @@ package url
 
 import (
 	"net/url"
+	"sync"
 )
 
 // 解析URL
@@ -16,6 +17,7 @@ func Parse(rawurl string) (*URL, error) {
 		Params:      ParseParams(p.RawQuery),
 		RawFragment: p.EscapedFragment(),
 		Fragment:    p.Fragment,
+		mutex:       &sync.RWMutex{},
 	}, err
 }
 
@@ -29,10 +31,13 @@ type URL struct {
 	Params      *Params       // GET参数
 	RawFragment string        // 原始锚点
 	Fragment    string        // 锚点
+	mutex       *sync.RWMutex
 }
 
 // URL结构体转字符串
 func (u *URL) String() string {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
 	s := u.Scheme + "://"
 	if u.User != nil {
 		s += u.User.String() + "@"

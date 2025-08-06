@@ -5,10 +5,7 @@ import (
 	http "github.com/wangluozhe/chttp"
 	"strconv"
 	"strings"
-	"sync"
 )
-
-var mutex = &sync.Mutex{}
 
 // 初始化Headers结构体
 func NewHeaders() *http.Header {
@@ -24,8 +21,6 @@ func ParseHeaders(headers interface{}) *http.Header {
 	pHeaderOrder := []string{}
 
 	addHeader := func(key, value string, isPseudo bool) {
-		mutex.Lock()
-		defer mutex.Unlock()
 		key = strings.ToLower(key)
 		if isPseudo {
 			if SearchStrings((*h)[http.PHeaderOrderKey], key) == -1 || SearchStrings(pHeaderOrder, key) != -1 {
@@ -96,8 +91,6 @@ func ParseHeaders(headers interface{}) *http.Header {
 		}
 	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
 	(*h)[http.HeaderOrderKey] = headerOrder
 	if len(pHeaderOrder) == 4 {
 		(*h)[http.PHeaderOrderKey] = pHeaderOrder

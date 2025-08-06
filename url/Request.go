@@ -1,10 +1,11 @@
 package url
 
 import (
-	"github.com/wangluozhe/chttp"
-	"github.com/wangluozhe/chttp/cookiejar"
 	"io"
 	"time"
+
+	"github.com/wangluozhe/chttp"
+	"github.com/wangluozhe/chttp/cookiejar"
 )
 
 func NewRequest() *Request {
@@ -28,6 +29,7 @@ type Request struct {
 	Proxies        string
 	Verify         bool
 	Cert           []string
+	Stream         bool
 	Ja3            string
 	ForceHTTP1     bool
 	TLSExtensions  *http.TLSExtensions

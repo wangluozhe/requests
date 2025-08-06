@@ -155,12 +155,17 @@ type Extensions struct {
 	//X25519    CurveID = 29
 	KeyShareCurves []string `json:"KeyShareCurves"`
 	//default is false, default is used grease, if not used grease the NotUsedGREASE param is true
-	NotUsedGREASE bool `json:"NotUsedGREASE"`
+	NotUsedGREASE        bool   `json:"NotUsedGREASE"`
+	ClientHelloHexStream string `json:"ClientHelloHexStream"`
 }
 
 func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 	extensions = &http.TLSExtensions{}
 	if e == nil {
+		return extensions
+	}
+	if e.ClientHelloHexStream != "" {
+		extensions.ClientHelloHexStream = e.ClientHelloHexStream
 		return extensions
 	}
 	if e.SupportedSignatureAlgorithms != nil {
