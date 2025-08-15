@@ -5,8 +5,14 @@ github.com/bitly/go-simplejson v0.5.0/go.mod h1:cXHtHw4XUPsvGaxgjIAn8PhEWG9NfngE
 github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 h1:DDGfHa7BWjL4YnC6+E63dPcxHo2sUxDIu8g3QgEJdRY=
 github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869/go.mod h1:Ekp36dRnpXw/yCqJaO+ZrUyxD+3VXMFFr56k5XYrpB4=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
+github.com/fxamacker/cbor v1.5.1 h1:XjQWBgdmQyqimslUh5r4tUGmoqzHmBFQOImkWGi2awg=
+github.com/fxamacker/cbor v1.5.1/go.mod h1:3aPGItF174ni7dDzd6JZ206H8cmr4GDNBGpPa971zsU=
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/gospider007/chanx v0.0.0-20231024081700-522ff183916d h1:mZEXpFAQLauplUbS0He8HEpxFuFrTU4Wqr+iNJNfZbY=
+github.com/gospider007/chanx v0.0.0-20231024081700-522ff183916d/go.mod h1:OZ+tVRnKXfPryK2K1V4CRyKeleZN+C3Qj/whqUzLdPs=
+github.com/gospider007/thread v0.0.0-20250327035213-c4ae3dc8660a h1:bTMlB9/bq8nmiTrBcyEEuERq40k5XMxL35SLcRLAOJA=
+github.com/gospider007/thread v0.0.0-20250327035213-c4ae3dc8660a/go.mod h1:nfykXvsrrJWjUXuzqCBUMHFU7QdliRugp+od6NKDxlo=
 github.com/klauspost/compress v1.18.0 h1:c/Cqfb0r+Yi+JtIEq73FWXVkRonBlf0CRNYc8Zttxdo=
 github.com/klauspost/compress v1.18.0/go.mod h1:2Pp+KzxcywXVXMr50+X0Q/Lsb43OQHYWRCY2AiWywWQ=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
@@ -18,8 +24,10 @@ github.com/refraction-networking/utls v1.8.0 h1:L38krhiTAyj9EeiQQa2sg+hYb4qwLCqd
 github.com/refraction-networking/utls v1.8.0/go.mod h1:jkSOEkLqn+S/jtpEHPOsVv/4V4EVnelwbMQl4vCWXAM=
 github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
-github.com/wangluozhe/chttp v1.0.12 h1:c8fZWhJi9bNS/g+McPl+QtYXaRvZFay+kL7ooUQ6HD8=
-github.com/wangluozhe/chttp v1.0.12/go.mod h1:LQPNJDPPIdWjb3prvbo2v1TKDV7LDjEmPJBmf6KKQBM=
+github.com/wangluozhe/chttp v1.0.14 h1:9dDHecBUDH2OrbTWydh1YCfEClhMUjYRtPvT+DRuOGk=
+github.com/wangluozhe/chttp v1.0.14/go.mod h1:mFEhZmOU4hyQqijrwHAdivhNE54LJ0prYIA+TcRLB+k=
+github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
+github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZqKjWU=
 github.com/xyproto/randomstring v1.0.5/go.mod h1:rgmS5DeNXLivK7YprL0pY+lTuhNQW3iGxZ18UQApw/E=
 golang.org/x/crypto v0.36.0 h1:AnAEvhDddvBdpY+uR+MyHmuZzzNqXSe/GvuDeob5L34=

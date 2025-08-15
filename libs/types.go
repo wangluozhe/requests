@@ -19,6 +19,7 @@ type RequestParams struct {
 	Verify             bool                   `json:"Verify"`
 	Cert               []string               `json:"Cert"`
 	Ja3                string                 `json:"Ja3"`
+	RandomJA3          bool                   `json:"RandomJA3"`
 	ForceHTTP1         bool                   `json:"ForceHTTP1"`
 	PseudoHeaderOrder  []string               `json:"PseudoHeaderOrder"`
 	TLSExtensions      string                 `json:"TLSExtensions"`

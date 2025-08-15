@@ -3,8 +3,10 @@ package models
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"strconv"
 	"strings"
@@ -218,4 +220,15 @@ func (pr *PrepareRequest) Prepare_auth(auth []string, rawurl string) error {
 		pr.Headers.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(strings.Join(auth, ":"))))
 	}
 	return nil
+}
+
+func (pr *PrepareRequest) Hash() string {
+	bytes, err := json.Marshal(pr)
+	if err != nil {
+		return ""
+	}
+
+	h := fnv.New64a()
+	h.Write(bytes)
+	return strconv.Itoa(int(h.Sum64()))
 }

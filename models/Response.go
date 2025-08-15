@@ -3,10 +3,11 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+
 	"github.com/bitly/go-simplejson"
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/requests/url"
-	"io"
 )
 
 var RedirectStatusCodes = []int{
@@ -51,6 +52,19 @@ type Response struct {
 	StatusCode int
 	History    []*Response
 	Request    *url.Request
+}
+
+// 显示关闭Response
+func (res *Response) Close() error {
+	if res.Body != nil {
+		res.Body.Close()
+	}
+	for _, h := range res.History {
+		h.Close()
+	}
+	res.Content = nil
+	res.Text = ""
+	return nil
 }
 
 // 使用自带库JSON解析

@@ -9,6 +9,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	url2 "net/url"
+	"strings"
+	"sync"
+	"time"
+	"unsafe"
+
 	"github.com/google/uuid"
 	http "github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
@@ -17,11 +23,6 @@ import (
 	ja3 "github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
 	"github.com/wangluozhe/requests/utils"
-	url2 "net/url"
-	"strings"
-	"sync"
-	"time"
-	"unsafe"
 )
 
 var unsafePointers = make(map[string]*C.char)
@@ -68,6 +69,7 @@ func request(requestParamsChar *C.char) *C.char {
 	if err != nil {
 		return C.CString(fmt.Sprintf(errorFormat, "request->response, err := GetSession(requestParams.Id).Request(requestParams.Method, requestParams.Url, req) failed: "+err.Error()))
 	}
+	defer response.Body.Close()
 	sessionsPool[requestParams.Id].Put(session)
 
 	responseParams := make(map[string]interface{})
@@ -176,6 +178,10 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 
 	if requestParams.Ja3 != "" {
 		req.Ja3 = requestParams.Ja3
+	}
+
+	if requestParams.RandomJA3 {
+		req.RandomJA3 = requestParams.RandomJA3
 	}
 
 	if requestParams.ForceHTTP1 {
