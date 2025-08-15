@@ -313,7 +313,6 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 	// 参数不变时，直接进行请求
 	if preq.Hash() == s.lastPreqHash && req.Hash() == s.lastReqHash {
-		fmt.Println("一样的")
 		resp, err := s.client.Do(s.request)
 		if err != nil {
 			return nil, err
