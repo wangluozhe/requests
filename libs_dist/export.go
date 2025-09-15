@@ -47,6 +47,8 @@ func GetSession(id string) *requests.Session {
 	}
 	sessionsPool[id] = sp
 	s := sp.Get().(*requests.Session)
+	cookies, _ := cookiejar.New(nil)
+	s.Cookies = cookies
 	return s
 }
 

@@ -5,16 +5,18 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"crypto/x509"
-	"io"
-	"os"
-	"reflect"
-	"sync"
-
+	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"hash/fnv"
+	"io"
+	"net"
 	url2 "net/url"
+	"os"
+	"reflect"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/andybalholm/brotli"
@@ -41,7 +43,31 @@ func default_headers() *http.Header {
 // 合并cookies
 func merge_cookies(rawurl string, cookieJar *cookiejar.Jar, cookie *cookiejar.Jar) {
 	urls, _ := url2.Parse(utils.EncodeURI(rawurl))
-	cookieJar.SetCookies(urls, cookie.Cookies(urls))
+
+	// 防止因为传入 nil 对象导致程序崩溃
+	if cookieJar == nil || cookie == nil {
+		return
+	}
+
+	// cookieJar的name表
+	var cookieJarNames map[string]struct{}
+	for _, c := range cookieJar.Cookies(urls) {
+		cookieJarNames[c.Name] = struct{}{}
+	}
+
+	var newCookies []*http.Cookie
+
+	// 检查目标 cookieJar 中是否已存在相同name，存在则不更新
+	for _, c := range cookie.Cookies(urls) {
+		if _, exists := cookieJarNames[c.Name]; !exists {
+			newCookies = append(newCookies, c)
+		}
+	}
+
+	// 如果列表不为空才执行设置操作
+	if len(newCookies) > 0 {
+		cookieJar.SetCookies(urls, newCookies)
+	}
 }
 
 // 合并参数
@@ -142,18 +168,23 @@ const (
 // 新建默认Session
 func NewSession() *Session {
 	session := &Session{
-		Headers:      default_headers(),
-		Cookies:      nil,
-		Verify:       true,
-		MaxRedirects: DEFAULT_REDIRECT_LIMIT,
-		transport:    nil,
-		request:      nil,
-		client:       nil,
-		mutex:        sync.Mutex{},
+		Headers:        default_headers(),
+		Cookies:        nil,
+		Verify:         true,
+		MaxRedirects:   DEFAULT_REDIRECT_LIMIT,
+		transport:      nil,
+		transportCache: make(map[string]*http.Transport),
+		cacheLock:      sync.Mutex{},
 	}
 	cookies, _ := cookiejar.New(nil)
 	session.Cookies = cookies
 	session.transport = &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   DEFAULT_TIMEOUT * time.Second,
+			KeepAlive: DEFAULT_TIMEOUT * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   DEFAULT_TIMEOUT * time.Second,
+		ResponseHeaderTimeout: DEFAULT_TIMEOUT * time.Second,
 		TLSClientConfig: &utls.Config{
 			InsecureSkipVerify:                 session.Verify,
 			ClientSessionCache:                 utls.NewLRUClientSessionCache(0),
@@ -161,13 +192,11 @@ func NewSession() *Session {
 			PreferSkipResumptionOnNilExtension: true,
 			SessionTicketsDisabled:             false,
 		},
-		DisableKeepAlives: false,
-	}
-	session.request = &http.Request{}
-	session.client = &http.Client{
-		Transport:     session.transport,
-		CheckRedirect: nil,
-		Timeout:       DEFAULT_TIMEOUT * time.Second,
+		DisableKeepAlives:   false,
+		MaxIdleConns:        10000,
+		MaxIdleConnsPerHost: 10000,
+		MaxConnsPerHost:     10000,
+		IdleConnTimeout:     time.Duration(DEFAULT_TIMEOUT) * time.Second,
 	}
 	return session
 }
@@ -176,24 +205,22 @@ var defaultSession = NewSession()
 
 // Session结构体
 type Session struct {
-	Params        *url.Params
-	Headers       *http.Header
-	Cookies       *cookiejar.Jar
-	Auth          []string
-	Proxies       string
-	Verify        bool
-	Cert          []string
-	Ja3           string
-	RandomJA3     bool
-	MaxRedirects  int
-	TLSExtensions *http.TLSExtensions
-	HTTP2Settings *http.HTTP2Settings
-	transport     *http.Transport
-	request       *http.Request
-	client        *http.Client
-	mutex         sync.Mutex
-	lastPreqHash  string
-	lastReqHash   string
+	Params         *url.Params
+	Headers        *http.Header
+	Cookies        *cookiejar.Jar
+	Auth           []string
+	Proxies        string
+	Verify         bool
+	Cert           []string
+	Ja3            string
+	RandomJA3      bool
+	ForceHTTP1     bool
+	TLSExtensions  *http.TLSExtensions
+	HTTP2Settings  *http.HTTP2Settings
+	MaxRedirects   int
+	transport      *http.Transport
+	transportCache map[string]*http.Transport
+	cacheLock      sync.Mutex
 }
 
 // 预请求处理
@@ -211,8 +238,8 @@ func (s *Session) Prepare_request(request *models.Request) (*models.PrepareReque
 		c, _ = cookiejar.New(nil)
 	}
 	cookies, _ := cookiejar.New(nil)
-	merge_cookies(request.Url, cookies, s.Cookies)
 	merge_cookies(request.Url, cookies, c)
+	merge_cookies(request.Url, cookies, s.Cookies)
 	auth := merge_setting(request.Auth, s.Auth).([]string)
 	p := models.NewPrepareRequest()
 	err = p.Prepare(
@@ -311,148 +338,147 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	var err error
 	var history []*models.Response
 
-	// 参数不变时，直接进行请求
-	if preq.Hash() == s.lastPreqHash && req.Hash() == s.lastReqHash {
-		resp, err := s.client.Do(s.request)
-		if err != nil {
-			return nil, err
-		}
-		response, err := s.buildResponse(resp, preq, req)
-		if err != nil {
-			return nil, err
-		}
-		response.History = history
-		return response, nil
-	}
-
-	s.lastPreqHash = preq.Hash()
-	s.lastReqHash = req.Hash()
-
 	// 设置代理
-	transportProxies := ""
-	if s.transport.Proxy != nil {
-		tpUrl, _ := s.transport.Proxy(nil)
-		transportProxies = tpUrl.String()
+	proxies := merge_setting(req.Proxies, s.Proxies).(string)
+	// 是否验证证书
+	verify := merge_setting(req.Verify, s.Verify).(bool)
+	// 设置证书
+	cert := merge_setting(req.Cert, s.Cert).([]string)
+	// 设置超时时间
+	timeout := merge_setting(req.Timeout, DEFAULT_TIMEOUT).(time.Duration)
+	// 设置ja3
+	ja3String := merge_setting(req.Ja3, s.Ja3).(string)
+	// 设置随机ja3
+	randomJA3 := merge_setting(req.RandomJA3, s.RandomJA3).(bool)
+	// 设置强制http1
+	forceHTTP1 := merge_setting(req.ForceHTTP1, s.ForceHTTP1).(bool)
+	// 设置tls
+	tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*http.TLSExtensions)
+	// 设置http2
+	http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http.HTTP2Settings)
+
+	// --- 缓存逻辑开始 ---
+
+	// 1. 根据 Transport 级别的配置生成缓存 Key
+	// 注意：只有会影响 Transport 的配置才需要加入 Key
+	certKey := ""
+	if len(cert) > 0 {
+		certKey = strings.Join(cert, "|")
 	}
-	if transportProxies == "" || (transportProxies != "" && !(transportProxies == s.Proxies || transportProxies == req.Proxies)) {
-		s.mutex.Lock()
-		proxies := merge_setting(s.Proxies, req.Proxies).(string)
+
+	cacheKey := fmt.Sprintf("verify=%t&cert=%s&ja3=%s&randomJA3=%t&forceHTTP1=%t&tlsExtensions=%s&http2Settings=%s",
+		verify, certKey, ja3String, randomJA3, forceHTTP1, tlsExtensionsHash(tlsExtensions), http2SettingsHash(http2Settings),
+	)
+
+	s.cacheLock.Lock() // 加锁保护缓存
+
+	transport, found := s.transportCache[cacheKey]
+	if !found {
+		// 缓存未命中，创建新的 Transport
+		transport = s.transport.Clone() // 从会话的基础 transport 克隆
+
 		if proxies != "" {
 			u1, err := url2.Parse(proxies)
 			if err != nil {
 				return nil, err
 			}
-			s.transport.Proxy = http.ProxyURL(u1)
-		} else {
-			s.transport.Proxy = nil
+			transport.Proxy = http.ProxyURL(u1)
 		}
-		s.mutex.Unlock()
-	}
 
-	// 是否验证证书
-	verify := merge_setting(s.Verify, req.Verify).(bool)
-	if verify != s.transport.TLSClientConfig.InsecureSkipVerify {
-		s.mutex.Lock()
-		s.transport.TLSClientConfig.InsecureSkipVerify = verify
-		s.mutex.Unlock()
-	}
+		if verify != transport.TLSClientConfig.InsecureSkipVerify {
+			transport.TLSClientConfig.InsecureSkipVerify = verify
+		}
 
-	// 设置证书
-	cert := merge_setting(s.Cert, req.Cert).([]string)
-	if cert != nil {
-		var cert_byte []byte
-		certs, err := utls.LoadX509KeyPair(cert[0], cert[1])
-		if err != nil {
-			return nil, err
+		if cert != nil {
+			var cert_byte []byte
+			certs, err := utls.LoadX509KeyPair(cert[0], cert[1])
+			if err != nil {
+				return nil, err
+			}
+			if len(cert) == 3 {
+				cert_byte, err = os.ReadFile(cert[2])
+			} else {
+				cert_byte, err = os.ReadFile(cert[0])
+			}
+			if err != nil {
+				return nil, err
+			}
+			certPool := x509.NewCertPool()
+			ok := certPool.AppendCertsFromPEM(cert_byte)
+			if !ok {
+				return nil, errors.New("failed to parse root certificate")
+			}
+			transport.TLSClientConfig.RootCAs = certPool
+			transport.TLSClientConfig.Certificates = []utls.Certificate{certs}
 		}
-		if len(cert) == 3 {
-			cert_byte, err = os.ReadFile(cert[2])
-		} else {
-			cert_byte, err = os.ReadFile(cert[0])
-		}
-		if err != nil {
-			return nil, err
-		}
-		certPool := x509.NewCertPool()
-		ok := certPool.AppendCertsFromPEM(cert_byte)
-		if !ok {
-			return nil, errors.New("failed to parse root certificate")
-		}
-		s.transport.TLSClientConfig.RootCAs = certPool
-		s.transport.TLSClientConfig.Certificates = []utls.Certificate{certs}
-	}
 
-	// 设置JA3指纹信息
-	ja3String := merge_setting(s.Ja3, req.Ja3).(string)
-	if ja3String != "" && strings.HasPrefix(preq.Url, "https") && s.transport.H2Transport == nil {
-		s.mutex.Lock()
-		if s.transport.TLSClientConfig.ClientSessionCache == nil {
-			s.transport.TLSClientConfig.ClientSessionCache = utls.NewLRUClientSessionCache(0)
-		}
-		if s.transport.TLSClientConfig.OmitEmptyPsk == false {
-			s.transport.TLSClientConfig.OmitEmptyPsk = true
-		}
-		if strings.Index(strings.Split(ja3String, ",")[2], "-41") != -1 {
-			s.transport.TLSClientConfig.SessionTicketsDisabled = false
-		}
-		if s.transport.H2Transport == nil {
-			var h2 *http.HTTP2Transport
-			h2, _ = http.HTTP2ConfigureTransports(s.transport)
-			s.transport.JA3 = ja3String
-			s.transport.UserAgent = s.Headers.Get("User-Agent")
-			// 自定义TLS指纹信息
-			tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*http.TLSExtensions)
-			http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http.HTTP2Settings)
-			randomJA3 := merge_setting(req.RandomJA3, s.RandomJA3).(bool)
-			h2.HTTP2Settings = http2Settings
-			if http2Settings != nil {
-				if http2Settings.Settings != nil {
-					for _, setting := range http2Settings.Settings {
-						switch setting.ID {
-						case http.HTTP2SettingHeaderTableSize:
-							h2.MaxEncoderHeaderTableSize = setting.Val
-							h2.MaxDecoderHeaderTableSize = setting.Val
-						case http.HTTP2SettingMaxConcurrentStreams:
-							h2.StrictMaxConcurrentStreams = true
-						case http.HTTP2SettingMaxFrameSize:
-							h2.MaxReadFrameSize = setting.Val
-						case http.HTTP2SettingMaxHeaderListSize:
-							h2.MaxHeaderListSize = setting.Val
+		if ja3String != "" && strings.HasPrefix(preq.Url, "https") && transport.H2Transport == nil {
+			if transport.TLSClientConfig.ClientSessionCache == nil {
+				transport.TLSClientConfig.ClientSessionCache = utls.NewLRUClientSessionCache(0)
+			}
+			if transport.TLSClientConfig.OmitEmptyPsk == false {
+				transport.TLSClientConfig.OmitEmptyPsk = true
+			}
+			if strings.Index(strings.Split(ja3String, ",")[2], "-41") != -1 {
+				transport.TLSClientConfig.SessionTicketsDisabled = false
+			}
+			if transport.H2Transport == nil {
+				var h2 *http.HTTP2Transport
+				h2, _ = http.HTTP2ConfigureTransports(transport)
+				transport.JA3 = ja3String
+				transport.UserAgent = s.Headers.Get("User-Agent")
+				transport.RandomJA3 = randomJA3
+				transport.ForceHTTP1 = forceHTTP1
+				// 自定义TLS指纹信息
+				h2.HTTP2Settings = http2Settings
+				if http2Settings != nil {
+					if http2Settings.Settings != nil {
+						for _, setting := range http2Settings.Settings {
+							switch setting.ID {
+							case http.HTTP2SettingHeaderTableSize:
+								h2.MaxEncoderHeaderTableSize = setting.Val
+								h2.MaxDecoderHeaderTableSize = setting.Val
+							case http.HTTP2SettingMaxConcurrentStreams:
+								h2.StrictMaxConcurrentStreams = true
+							case http.HTTP2SettingMaxFrameSize:
+								h2.MaxReadFrameSize = setting.Val
+							case http.HTTP2SettingMaxHeaderListSize:
+								h2.MaxHeaderListSize = setting.Val
+							}
 						}
 					}
 				}
+				transport.TLSExtensions = tlsExtensions
+				transport.H2Transport = h2
 			}
-			s.transport.H2Transport = h2
-			s.transport.TLSExtensions = tlsExtensions
-			s.transport.RandomJA3 = randomJA3
+		} else if ja3String != "" && strings.HasPrefix(preq.Url, "https") && transport.H2Transport != nil {
+			transport.JA3 = ja3String
+			transport.UserAgent = s.Headers.Get("User-Agent")
+			transport.RandomJA3 = randomJA3
+			transport.ForceHTTP1 = forceHTTP1
+			transport.TLSExtensions = tlsExtensions
+			transport.H2Transport.(*http.HTTP2Transport).HTTP2Settings = http2Settings
 		}
-		s.mutex.Unlock()
-	} else if ja3String != "" && strings.HasPrefix(preq.Url, "https") && s.transport.H2Transport != nil {
-		s.mutex.Lock()
-		s.transport.JA3 = ja3String
-		s.transport.UserAgent = s.Headers.Get("User-Agent")
-		// 自定义TLS指纹信息
-		tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*http.TLSExtensions)
-		http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http.HTTP2Settings)
-		randomJA3 := merge_setting(req.RandomJA3, s.RandomJA3).(bool)
-		s.transport.H2Transport.(*http.HTTP2Transport).HTTP2Settings = http2Settings
-		s.transport.TLSExtensions = tlsExtensions
-		s.transport.RandomJA3 = randomJA3
-		s.mutex.Unlock()
+
+		s.transportCache[cacheKey] = transport // 将新创建的 transport 存入缓存
 	}
 
-	// 设置超时时间
-	timeout := req.Timeout
-	if timeout != 0 {
-		s.client.Timeout = timeout
+	s.cacheLock.Unlock() // 解锁
+
+	// --- 缓存逻辑结束 ---
+
+	// 2. 使用获取到的 Transport 创建一个 Client
+	// Client 的创建开销很小，每次请求都可以创建一个新的，以便设置请求特定的 Timeout
+	client := &http.Client{
+		Transport:     transport,
+		CheckRedirect: nil,
+		Timeout:       timeout,
 	}
 
 	// 是否自动转发
-	allowRedirect := req.AllowRedirects
-	if allowRedirect {
-		if s.client.CheckRedirect == nil {
-			s.mutex.Lock()
-			s.client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+	if req.AllowRedirects {
+		if client.CheckRedirect == nil {
+			client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
 				if len(via) > s.MaxRedirects {
 					return errors.New(fmt.Sprintf("redirects number gt %i", s.MaxRedirects))
 				}
@@ -484,17 +510,16 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 				}
 				return nil
 			}
-			s.mutex.Unlock()
 		}
 	} else {
-		s.mutex.Lock()
-		s.client.CheckRedirect = disableRedirect
-		s.mutex.Unlock()
+		client.CheckRedirect = disableRedirect
 	}
+
+	// 设置cookies
+	client.Jar = preq.Cookies
 
 	// 设置有序请求头
 	if req.Headers != nil {
-		s.mutex.Lock()
 		var preqHeaders http.Header
 		for _, key := range []string{http.HeaderOrderKey, http.PHeaderOrderKey, http.UnChangedHeaderKey} {
 			reqValue := (*req.Headers)[key]
@@ -512,17 +537,14 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		if preqHeaders != nil {
 			preq.Headers = &preqHeaders
 		}
-		s.mutex.Unlock()
 	}
 
-	s.request, err = http.NewRequest(preq.Method, preq.Url, preq.Body)
+	request, err := http.NewRequest(preq.Method, preq.Url, preq.Body)
 	if err != nil {
-		log.Fatalln(err)
 		return nil, err
 	}
-	s.request.Header = preq.Headers.Clone()
-	s.client.Jar = preq.Cookies
-	resp, err := s.client.Do(s.request)
+	request.Header = preq.Headers.Clone()
+	resp, err := client.Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -590,6 +612,30 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 	}
 	resp.Body.Close()
 	return response, nil
+}
+
+// TLSExtensions的hash
+func tlsExtensionsHash(tlsExtensions *http.TLSExtensions) string {
+	bytes, err := json.Marshal(tlsExtensions)
+	if err != nil {
+		return ""
+	}
+
+	h := fnv.New64a()
+	h.Write(bytes)
+	return strconv.Itoa(int(h.Sum64()))
+}
+
+// HTTP2Settings的hash
+func http2SettingsHash(http2Settings *http.HTTP2Settings) string {
+	bytes, err := json.Marshal(http2Settings)
+	if err != nil {
+		return ""
+	}
+
+	h := fnv.New64a()
+	h.Write(bytes)
+	return strconv.Itoa(int(h.Sum64()))
 }
 
 // 解码Body数据
