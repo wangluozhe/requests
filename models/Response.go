@@ -43,15 +43,16 @@ func inPermanentRedirectStatusCodes(statusCode int) bool {
 
 // Response结构体
 type Response struct {
-	Url        string
-	Headers    http.Header
-	Cookies    []*http.Cookie
-	Text       string
-	Content    []byte
-	Body       io.ReadCloser
-	StatusCode int
-	History    []*Response
-	Request    *url.Request
+	Url         string
+	Headers     http.Header
+	Cookies     []*http.Cookie
+	Text        string
+	Content     []byte
+	Body        io.ReadCloser
+	StatusCode  int
+	History     []*Response
+	Request     *url.Request
+	RawResponse []byte
 }
 
 // 显示关闭Response

@@ -23,6 +23,7 @@ import (
 	utls "github.com/refraction-networking/utls"
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
+	"github.com/wangluozhe/chttp/httputil"
 	"github.com/wangluozhe/requests/models"
 	"github.com/wangluozhe/requests/url"
 	"github.com/wangluozhe/requests/utils"
@@ -566,17 +567,23 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 // 构建response参数
 func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+	rawResponse, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		return nil, err
+	}
+
 	if req.Stream {
 		response := &models.Response{
-			Url:        preq.Url,
-			Headers:    resp.Header,
-			Cookies:    resp.Cookies(),
-			Text:       "",
-			Content:    nil,
-			Body:       resp.Body,
-			StatusCode: resp.StatusCode,
-			History:    []*models.Response{},
-			Request:    req,
+			Url:         preq.Url,
+			Headers:     resp.Header,
+			Cookies:     resp.Cookies(),
+			Text:        "",
+			Content:     nil,
+			Body:        resp.Body,
+			StatusCode:  resp.StatusCode,
+			History:     []*models.Response{},
+			Request:     req,
+			RawResponse: rawResponse,
 		}
 		if resp.Cookies() != nil {
 			u, _ := url2.Parse(preq.Url)
@@ -586,15 +593,16 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 	}
 
 	response := &models.Response{
-		Url:        preq.Url,
-		Headers:    resp.Header,
-		Cookies:    resp.Cookies(),
-		Text:       "",
-		Content:    nil,
-		Body:       nil,
-		StatusCode: resp.StatusCode,
-		History:    []*models.Response{},
-		Request:    req,
+		Url:         preq.Url,
+		Headers:     resp.Header,
+		Cookies:     resp.Cookies(),
+		Text:        "",
+		Content:     nil,
+		Body:        nil,
+		StatusCode:  resp.StatusCode,
+		History:     []*models.Response{},
+		Request:     req,
+		RawResponse: rawResponse,
 	}
 
 	// 创建解压流
