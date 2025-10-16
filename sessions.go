@@ -193,9 +193,9 @@ func NewSession() *Session {
 			SessionTicketsDisabled:             false,
 		},
 		DisableKeepAlives:   false,
-		MaxIdleConns:        10000,
-		MaxIdleConnsPerHost: 10000,
-		MaxConnsPerHost:     10000,
+		MaxIdleConns:        200,
+		MaxIdleConnsPerHost: 200,
+		MaxConnsPerHost:     200,
 		IdleConnTimeout:     time.Duration(DEFAULT_TIMEOUT) * time.Second,
 	}
 	return session
@@ -366,8 +366,11 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		certKey = strings.Join(cert, "|")
 	}
 
-	cacheKey := fmt.Sprintf("verify=%t&cert=%s&ja3=%s&randomJA3=%t&forceHTTP1=%t&tlsExtensions=%s&http2Settings=%s",
-		verify, certKey, ja3String, randomJA3, forceHTTP1, tlsExtensionsHash(tlsExtensions), http2SettingsHash(http2Settings),
+	// 不使用连接复用
+	disableKeepAlives := strings.ToLower(preq.Headers.Get("Connection")) == "close"
+
+	cacheKey := fmt.Sprintf("proxies=%s&verify=%t&cert=%s&ja3=%s&randomJA3=%t&forceHTTP1=%t&tlsExtensions=%s&http2Settings=%s&DisableKeepAlives=%t",
+		proxies, verify, certKey, ja3String, randomJA3, forceHTTP1, tlsExtensionsHash(tlsExtensions), http2SettingsHash(http2Settings), disableKeepAlives,
 	)
 
 	s.cacheLock.Lock() // 加锁保护缓存
@@ -376,6 +379,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	if !found {
 		// 缓存未命中，创建新的 Transport
 		transport = s.transport.Clone() // 从会话的基础 transport 克隆
+		transport.TLSClientConfig = s.transport.TLSClientConfig.Clone()
 
 		if proxies != "" {
 			u1, err := url2.Parse(proxies)
@@ -458,6 +462,10 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			transport.ForceHTTP1 = forceHTTP1
 			transport.TLSExtensions = tlsExtensions
 			transport.H2Transport.(*http.HTTP2Transport).HTTP2Settings = http2Settings
+		}
+
+		if disableKeepAlives {
+			transport.DisableKeepAlives = true
 		}
 
 		s.transportCache[cacheKey] = transport // 将新创建的 transport 存入缓存
