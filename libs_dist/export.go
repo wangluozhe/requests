@@ -29,27 +29,17 @@ var unsafePointers = make(map[string]*C.char)
 var unsafePointersLock = sync.Mutex{}
 var errorFormat = "{\"err\": \"%v\"}"
 
-var sessionsPool = make(map[string]*sync.Pool)
-var sessionsPoolLock = sync.Mutex{}
+var sessionsPool = sync.Map{}
 
 func GetSession(id string) *requests.Session {
-	sessionsPoolLock.Lock()
-	defer sessionsPoolLock.Unlock()
-	if sp, ok := sessionsPool[id]; ok {
-		s := sp.Get().(*requests.Session)
-		sp.Put(s)
-		return s
+	if actual, ok := sessionsPool.Load(id); ok {
+		return actual.(*requests.Session)
 	}
-	sp := &sync.Pool{
-		New: func() interface{} {
-			return requests.NewSession()
-		},
-	}
-	sessionsPool[id] = sp
-	s := sp.Get().(*requests.Session)
+	s := requests.NewSession()
 	cookies, _ := cookiejar.New(nil)
 	s.Cookies = cookies
-	return s
+	actual, _ := sessionsPool.LoadOrStore(id, s)
+	return actual.(*requests.Session)
 }
 
 //export request
@@ -72,7 +62,6 @@ func request(requestParamsChar *C.char) *C.char {
 		return C.CString(fmt.Sprintf(errorFormat, "request->response, err := GetSession(requestParams.Id).Request(requestParams.Method, requestParams.Url, req) failed: "+err.Error()))
 	}
 	defer response.Body.Close()
-	sessionsPool[requestParams.Id].Put(session)
 
 	responseParams := make(map[string]interface{})
 	responseParams["id"] = uuid.New().String()
@@ -237,6 +226,12 @@ func freeMemory(responseId *C.char) {
 	}
 
 	delete(unsafePointers, responseIdString)
+}
+
+//export freeSession
+func freeSession(sessionId *C.char) {
+	sessionIdString := C.GoString(sessionId)
+	sessionsPool.Delete(sessionIdString)
 }
 
 func main() {
