@@ -32,11 +32,13 @@ var errorFormat = "{\"err\": \"%v\"}"
 var sessionsPool = sync.Map{}
 
 func GetSession(id string) *requests.Session {
+	cookies, _ := cookiejar.New(nil)
 	if actual, ok := sessionsPool.Load(id); ok {
-		return actual.(*requests.Session)
+		s := actual.(*requests.Session)
+		s.Cookies = cookies
+		return s
 	}
 	s := requests.NewSession()
-	cookies, _ := cookiejar.New(nil)
 	s.Cookies = cookies
 	actual, _ := sessionsPool.LoadOrStore(id, s)
 	return actual.(*requests.Session)
