@@ -2,10 +2,11 @@ package transport
 
 import (
 	"fmt"
-	utls "github.com/refraction-networking/utls"
-	http "github.com/wangluozhe/chttp"
 	"strconv"
 	"sync"
+
+	utls "github.com/refraction-networking/utls"
+	http "github.com/wangluozhe/chttp"
 )
 
 var mutex = &sync.RWMutex{}
@@ -72,6 +73,7 @@ var supportedVersionsExtensions = map[string]uint16{
 	"1.2":    utls.VersionTLS12,
 	"1.1":    utls.VersionTLS11,
 	"1.0":    utls.VersionTLS10,
+	"0300":   utls.VersionSSL30,
 }
 
 var pskKeyExchangeModesExtensions = map[string]uint8{
