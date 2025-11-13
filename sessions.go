@@ -51,7 +51,7 @@ func merge_cookies(rawurl string, cookieJar *cookiejar.Jar, cookie *cookiejar.Ja
 	}
 
 	// cookieJar的name表
-	var cookieJarNames map[string]struct{}
+	var cookieJarNames = make(map[string]struct{})
 	for _, c := range cookieJar.Cookies(urls) {
 		cookieJarNames[c.Name] = struct{}{}
 	}
