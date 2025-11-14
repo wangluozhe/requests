@@ -1,9 +1,10 @@
 package transport
 
 import (
-	http "github.com/wangluozhe/chttp"
 	"strconv"
 	"strings"
+
+	http "github.com/wangluozhe/chttp"
 )
 
 var settings = map[string]http.HTTP2SettingID{
@@ -23,7 +24,8 @@ type H2Settings struct {
 	//INITIAL_WINDOW_SIZE
 	//MAX_FRAME_SIZE
 	//MAX_HEADER_LIST_SIZE
-	Settings map[string]int `json:"Settings"`
+	Settings    map[string]int `json:"Settings"`
+	SettingsAck bool           `json:"SettingsAck"`
 	//HEADER_TABLE_SIZE
 	//ENABLE_PUSH
 	//MAX_CONCURRENT_STREAMS
@@ -32,6 +34,7 @@ type H2Settings struct {
 	//MAX_HEADER_LIST_SIZE
 	SettingsOrder  []string                 `json:"SettingsOrder"`
 	ConnectionFlow int                      `json:"ConnectionFlow"`
+	HeadersID      int                      `json:"HeadersID"`
 	HeaderPriority map[string]interface{}   `json:"HeaderPriority"`
 	PriorityFrames []map[string]interface{} `json:"PriorityFrames"`
 }
@@ -76,8 +79,16 @@ func ToHTTP2Settings(h2Settings *H2Settings) (http2Settings *http.HTTP2Settings)
 			mutex.RUnlock()
 		}
 	}
+	if h2Settings.SettingsAck {
+		http2Settings.SettingsAck = true
+	}
 	if h2Settings.ConnectionFlow != 0 {
 		http2Settings.ConnectionFlow = h2Settings.ConnectionFlow
+	}
+	if h2Settings.HeadersID == 0 {
+		http2Settings.HeadersID = 1
+	} else {
+		http2Settings.HeadersID = h2Settings.HeadersID
 	}
 	if h2Settings.HeaderPriority != nil {
 		mutex.RLock()

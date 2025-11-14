@@ -7,7 +7,7 @@ require (
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/google/uuid v1.3.0
 	github.com/refraction-networking/utls v1.8.1
-	github.com/wangluozhe/chttp v1.0.15
+	github.com/wangluozhe/chttp v1.0.17
 	golang.org/x/crypto v0.36.0
 )
 
