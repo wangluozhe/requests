@@ -357,7 +357,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*http.TLSExtensions)
 	// 设置http2
 	http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http.HTTP2Settings)
-	if http2Settings.HeadersID == 0 {
+	if http2Settings != nil && http2Settings.HeadersID == 0 {
 		http2Settings.HeadersID = 1
 	}
 
