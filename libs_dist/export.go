@@ -107,18 +107,18 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 
 	if requestParams.Headers != nil {
 		headers := url.NewHeaders()
+		if requestParams.UnChangedHeaderKey != nil {
+			(*headers)[http.UnChangedHeaderKey] = requestParams.UnChangedHeaderKey
+		}
+		if requestParams.HeadersOrder != nil {
+			(*headers)[http.HeaderOrderKey] = requestParams.HeadersOrder
+		}
 		for key, value := range requestParams.Headers {
 			if strings.ToLower(key) != "content-length" {
 				headers.Set(key, value)
 			}
 		}
 		req.Headers = headers
-		if requestParams.HeadersOrder != nil {
-			(*req.Headers)[http.HeaderOrderKey] = requestParams.HeadersOrder
-		}
-		if requestParams.UnChangedHeaderKey != nil {
-			(*req.Headers)[http.UnChangedHeaderKey] = requestParams.UnChangedHeaderKey
-		}
 	}
 
 	if requestParams.Cookies != nil {

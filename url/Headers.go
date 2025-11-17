@@ -2,9 +2,10 @@ package url
 
 import (
 	"errors"
-	http "github.com/wangluozhe/chttp"
 	"strconv"
 	"strings"
+
+	http "github.com/wangluozhe/chttp"
 )
 
 // 初始化Headers结构体
@@ -21,15 +22,17 @@ func ParseHeaders(headers interface{}) *http.Header {
 	pHeaderOrder := []string{}
 
 	addHeader := func(key, value string, isPseudo bool) {
-		key = strings.ToLower(key)
+		lower_key := strings.ToLower(key)
 		if isPseudo {
-			if SearchStrings((*h)[http.PHeaderOrderKey], key) == -1 || SearchStrings(pHeaderOrder, key) != -1 {
+			if SearchStrings((*h)[http.PHeaderOrderKey], lower_key) == -1 || SearchStrings(pHeaderOrder, lower_key) != -1 {
 				return
 			}
-			pHeaderOrder = append(pHeaderOrder, key)
+			pHeaderOrder = append(pHeaderOrder, lower_key)
+			(*h)[http.PHeaderOrderKey] = pHeaderOrder
 		} else {
+			headerOrder = append(headerOrder, lower_key)
+			(*h)[http.HeaderOrderKey] = headerOrder
 			h.Add(key, value)
-			headerOrder = append(headerOrder, key)
 		}
 	}
 
