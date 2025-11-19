@@ -28,6 +28,8 @@ func ParseParams(params interface{}) *Params {
 			value := strings.SplitN(l, "=", 2)
 			if len(value) == 2 {
 				p.Add(value[0], value[1])
+			} else if len(value) == 1 && value[0] != "" {
+				p.Add(value[0], "")
 			}
 		}
 	case map[string]string:
@@ -166,7 +168,11 @@ func (p *Params) Encode() string {
 	for _, key := range p.indexKey {
 		if item, ok := p.values.Load(key); ok {
 			for _, value := range item.([]string) {
-				text = append(text, key+"="+value)
+				if value == "" {
+					text = append(text, key)
+				} else {
+					text = append(text, key+"="+value)
+				}
 			}
 		}
 	}
