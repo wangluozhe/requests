@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"log"
 	"net"
 	url2 "net/url"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/google/uuid"
 	utls "github.com/refraction-networking/utls"
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
@@ -555,11 +557,36 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	if err != nil {
 		return nil, err
 	}
+
+	// ================= START DEBUG LOGIC =================
+	var debugID string
+
+	if IsDebug() {
+		debugID = uuid.New().String()
+
+		reqBytes, _ := json.MarshalIndent(req, "", "  ")
+		log.Printf("[ID: %s] [Config] url.Request struct:\n%s\n", debugID, string(reqBytes))
+
+		// 2. 打印原始 HTTP 请求报文 (Wire Format)
+		// body 为 true 会打印请求体，如果请求体很大建议设为 false
+		dumpReq, _ := httputil.DumpRequestOut(request, true)
+		log.Printf("[ID: %s] [Wire] HTTP Raw Request:\n%s\n", debugID, string(dumpReq))
+	}
+	// ================= END DEBUG LOGIC =================
+
 	request.Header = preq.Headers.Clone()
 	resp, err := client.Do(request)
 	if err != nil {
 		return nil, err
 	}
+
+	// ================= START DEBUG RESPONSE =================
+	if IsDebug() {
+		dumpResp, _ := httputil.DumpResponse(resp, true)
+		log.Printf("[ID: %s] [Wire] HTTP Raw Response:\n%s\n", debugID, string(dumpResp))
+	}
+	// ================= END DEBUG RESPONSE =================
+
 	response, err := s.buildResponse(resp, preq, req)
 	if err != nil {
 		return nil, err

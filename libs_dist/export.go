@@ -236,6 +236,11 @@ func freeSession(sessionId *C.char) {
 	sessionsPool.Delete(sessionIdString)
 }
 
+//export setDebug
+func setDebug(enable bool) {
+	requests.SetDebug(enable)
+}
+
 func main() {
 	defer func() {
 		if r := recover(); r != nil {

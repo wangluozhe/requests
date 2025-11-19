@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.24.0-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.4.7-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.24.0-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.4.8-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
 
 requests支持以下新特性：
 
@@ -28,7 +28,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版
 
 ```bash
-go get github.com/wangluozhe/requests@v1.4.7
+go get github.com/wangluozhe/requests@v1.4.8
 ```
 
 
@@ -43,6 +43,25 @@ go get github.com/wangluozhe/requests@v1.4.7
 - Requests是最新的
 
 让我们从一些简单的示例开始吧。
+
+
+
+## DEBUG模式
+设置后全局可通用，可以把结果打印至stderr中，方便查看url.Request结构体、原始请求、原始响应内容。
+
+```go
+import (
+    "github.com/wangluozhe/requests"
+)
+
+// 打开Debug模式
+requests.SetDebug(true)
+
+// 请求代码...
+
+// 取消Debug模式
+requests.SetDebug(false)
+```
 
 
 
