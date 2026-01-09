@@ -44,7 +44,7 @@ type PrepareRequest struct {
 }
 
 // 预处理所有数据
-func (pr *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json map[string]interface{}, body io.Reader, auth []string) error {
+func (pr *PrepareRequest) Prepare(method, url string, params *url.Params, headers *http.Header, cookies *cookiejar.Jar, data *url.Values, files *url.Files, json any, body io.Reader, auth []string) error {
 	if err := pr.Prepare_method(method); err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (pr *PrepareRequest) Prepare_headers(headers *http.Header) error {
 }
 
 // 预处理body
-func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json map[string]interface{}, bodys io.Reader) error {
+func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json any, bodys io.Reader) error {
 	if bodys != nil {
 		if pr.Headers.Get("content-type") == "" {
 			pr.Headers.Set("content-type", "application/octet-stream")
@@ -148,7 +148,7 @@ func (pr *PrepareRequest) Prepare_body(data *url.Values, files *url.Files, json 
 }
 
 // 预处理JSONBody
-func prepareJSONBody(json map[string]interface{}) (string, error) {
+func prepareJSONBody(json any) (string, error) {
 	jsonByte, err := utils.Marshal(json) // 避免json.Marshal对 "<", ">", "&" 等字符进行HTML编码
 	if err != nil {
 		return "", err

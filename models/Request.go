@@ -1,10 +1,11 @@
 package models
 
 import (
+	"io"
+
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
 	"github.com/wangluozhe/requests/url"
-	"io"
 )
 
 type Request struct {
@@ -16,7 +17,7 @@ type Request struct {
 	Data    *url.Values
 	Files   *url.Files
 	Body    io.Reader
-	Json    map[string]interface{}
+	Json    any
 	Auth    []string
 }
 

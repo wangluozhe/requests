@@ -271,13 +271,13 @@ func (s *Session) Request(method, rawurl string, request *url.Request) (*models.
 	req := &models.Request{
 		Method:  strings.ToUpper(method),
 		Url:     rawurl,
-		Params:  request.Params,
-		Headers: request.Headers,
-		Cookies: request.Cookies,
-		Data:    request.Data,
-		Files:   request.Files,
+		Params:  request.GetParams(),
+		Headers: request.GetHeaders(),
+		Cookies: request.GetCookies(rawurl),
+		Data:    request.GetData(),
+		Files:   request.GetFiles(),
 		Json:    request.Json,
-		Body:    request.Body,
+		Body:    request.GetBody(),
 		Auth:    request.Auth,
 	}
 	preq, err := s.Prepare_request(req)
@@ -536,7 +536,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	if req.Headers != nil {
 		var preqHeaders http.Header
 		for _, key := range []string{http.HeaderOrderKey, http.PHeaderOrderKey, http.UnChangedHeaderKey} {
-			reqValue := (*req.Headers)[key]
+			reqValue := (*req.GetHeaders())[key]
 			preqValue := (*preq.Headers)[key]
 			if reqValue == nil {
 				continue
