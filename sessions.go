@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	"log"
 	"net"
 	url2 "net/url"
 	"os"
@@ -558,23 +557,23 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		return nil, err
 	}
 
+	request.Header = preq.Headers.Clone()
+
 	// ================= START DEBUG LOGIC =================
 	var debugID string
 
 	if IsDebug() {
 		debugID = uuid.New().String()
 
-		reqBytes, _ := json.MarshalIndent(req, "", "  ")
-		log.Printf("[ID: %s] [Config] url.Request struct:\n%s\n", debugID, string(reqBytes))
-
 		// 2. 打印原始 HTTP 请求报文 (Wire Format)
-		// body 为 true 会打印请求体，如果请求体很大建议设为 false
+		if http2Settings != nil {
+			request.ProtoMajor = 2
+		}
 		dumpReq, _ := httputil.DumpRequestOut(request, true)
-		log.Printf("[ID: %s] [Wire] HTTP Raw Request:\n%s\n", debugID, string(dumpReq))
+		fmt.Printf("%s [ID: %s] [Wire] HTTP Raw Request:\n%s\n", time.Now().Format("2006/01/02 15:04:05"), debugID, string(dumpReq))
 	}
 	// ================= END DEBUG LOGIC =================
 
-	request.Header = preq.Headers.Clone()
 	resp, err := client.Do(request)
 	if err != nil {
 		return nil, err
@@ -583,7 +582,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	// ================= START DEBUG RESPONSE =================
 	if IsDebug() {
 		dumpResp, _ := httputil.DumpResponse(resp, true)
-		log.Printf("[ID: %s] [Wire] HTTP Raw Response:\n%s\n", debugID, string(dumpResp))
+		fmt.Printf("%s [ID: %s] [Wire] HTTP Raw Response:\n%s\n", time.Now().Format("2006/01/02 15:04:05"), debugID, string(dumpResp))
 	}
 	// ================= END DEBUG RESPONSE =================
 
