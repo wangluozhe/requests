@@ -76,11 +76,11 @@ func main() {
 	}
 
 	fmt.Println("--------------------------------------------------")
-	fmt.Printf("最终响应内容: %s\n", resp.Text)
+	fmt.Printf("最终响应内容: %s\n", resp.Text())
 	fmt.Println("--------------------------------------------------")
 
 	// 验证 headers 是否包含 Authorization
 	// httpbin 会返回请求头，我们可以检查一下
 	fmt.Println("检查 httpbin 返回的 headers (确认中间件是否生效):")
-	fmt.Println(resp.Text)
+	fmt.Println(resp.Text())
 }

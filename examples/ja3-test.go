@@ -22,7 +22,7 @@ func main() {
 	fmt.Println(r1.Request.Headers)
 	fmt.Println("url:", r1.Url)
 	fmt.Println("headers:", r1.Headers)
-	fmt.Println("text:", r1.Text)
+	fmt.Println("text:", r1.Text())
 	r2, err := session.Get("https://tls.peet.ws/api/all", req)
 	if err != nil {
 		fmt.Println(err)
@@ -30,5 +30,5 @@ func main() {
 	fmt.Println(r2.Request.Headers)
 	fmt.Println("url:", r2.Url)
 	fmt.Println("headers:", r2.Headers)
-	fmt.Println("text:", r2.Text)
+	fmt.Println("text:", r2.Text())
 }

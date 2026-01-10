@@ -619,66 +619,71 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 // 构建response参数
 func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
-	rawResponse, err := httputil.DumpResponse(resp, true)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.Stream {
-		response := &models.Response{
-			Url:         preq.Url,
-			Headers:     resp.Header,
-			Cookies:     resp.Cookies(),
-			Text:        "",
-			Content:     nil,
-			Body:        resp.Body,
-			StatusCode:  resp.StatusCode,
-			History:     []*models.Response{},
-			Request:     req,
-			RawResponse: rawResponse,
-		}
-		if resp.Cookies() != nil {
-			u, _ := url2.Parse(preq.Url)
-			s.Cookies.SetCookies(u, resp.Cookies())
-		}
-		return response, nil
-	}
-
 	response := &models.Response{
-		Url:         preq.Url,
-		Headers:     resp.Header,
-		Cookies:     resp.Cookies(),
-		Text:        "",
-		Content:     nil,
-		Body:        nil,
-		StatusCode:  resp.StatusCode,
-		History:     []*models.Response{},
-		Request:     req,
-		RawResponse: rawResponse,
+		Url:        preq.Url,
+		Headers:    resp.Header,
+		Cookies:    resp.Cookies(),
+		Body:       resp.Body,
+		StatusCode: resp.StatusCode,
+		History:    []*models.Response{},
+		Request:    req,
 	}
 
-	// 创建解压流
-	decompressed_body, err := DecompressBody(resp.Body, resp.Header.Get("Content-Encoding"))
-	if err != nil {
-		return nil, err
-	}
-	defer decompressed_body.Close()
-
-	// 流式读取到缓冲区
-	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, decompressed_body); err != nil {
-		return nil, err
-	}
-
-	response.Content = buf.Bytes()
-	response.Text = buf.String()
-	response.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
-
+	// 更新 Cookies
 	if resp.Cookies() != nil {
 		u, _ := url2.Parse(preq.Url)
 		s.Cookies.SetCookies(u, resp.Cookies())
 	}
-	resp.Body.Close()
+
+	// 获取 Header 部分的原始数据 (不包含 Body)
+	// DumpResponse(resp, false) 只会 Dump Header
+	rawHeader, err := httputil.DumpResponse(resp, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// Stream 模式，直接返回
+	if req.Stream {
+		response.Body = resp.Body
+		response.RawResponse = rawHeader
+		return response, nil
+	}
+
+	// 确保最后关闭原始 Body
+	defer resp.Body.Close()
+
+	// 读取原始 Body 数据 (可能是压缩的，也可能是加密的)
+	rawBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// 拼装完整的 RawResponse (Header + RawBody)
+	// 注意：httputil.DumpResponse 返回的数据末尾通常已经包含 \r\n\r\n，但如果是 false 模式可能需要检查一下分隔符
+	// 这里直接拼接作为近似的 Wire Format
+	response.RawResponse = append(rawHeader, rawBodyBytes...)
+
+	// 处理解压逻辑
+	// 无论服务端是否压缩，我们都尝试通过 DecompressBody 处理
+	// 因为我们需要一个新的 Reader 来读取 rawBodyBytes
+	var bodyReader io.ReadCloser = io.NopCloser(bytes.NewReader(rawBodyBytes))
+
+	// 创建解压流
+	decompressedStream, err := DecompressBody(bodyReader, resp.Header.Get("Content-Encoding"))
+	if err != nil {
+		return nil, err
+	}
+	defer decompressedStream.Close()
+
+	// 读取解压后的数据到 Content
+	contentBytes, err := io.ReadAll(decompressedStream)
+	if err != nil {
+		return nil, err
+	}
+
+	response.Content = contentBytes
+	// 重新填充 Body，这样用户如果习惯去 Read Body 也能读到解压后的数据
+	response.Body = io.NopCloser(bytes.NewReader(contentBytes))
 	return response, nil
 }
 

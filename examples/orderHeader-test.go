@@ -103,5 +103,5 @@ func main() {
 	fmt.Println(r.Request.Headers)
 	fmt.Println("url:", r.Url)
 	fmt.Println("headers:", r.Headers)
-	fmt.Println("text:", r.Text)
+	fmt.Println("text:", r.Text())
 }

@@ -82,10 +82,10 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println("text:", r.Text)
+	fmt.Println("text:", r.Text())
 	r, err = session.Get("https://tls.peet.ws/api/all", req)
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println("text:", r.Text)
+	fmt.Println("text:", r.Text())
 }

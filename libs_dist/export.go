@@ -71,7 +71,7 @@ func request(requestParamsChar *C.char) *C.char {
 	responseParams["headers"] = response.Headers
 	responseParams["cookies"] = response.Cookies
 	responseParams["status_code"] = response.StatusCode
-	responseParams["content"] = utils.Base64Encode(response.Text)
+	responseParams["content"] = utils.Base64Encode(response.Content)
 	responseParams["raw"] = response.RawResponse
 
 	responseParamsString, err := json.Marshal(responseParams)

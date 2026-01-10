@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.24.0-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.4.8-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.24.0-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.5.0-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
 
 requests支持以下新特性：
 
@@ -28,7 +28,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版
 
 ```bash
-go get github.com/wangluozhe/requests@v1.4.8
+go get github.com/wangluozhe/requests@v1.5.0
 ```
 
 
@@ -61,6 +61,87 @@ requests.SetDebug(true)
 
 // 取消Debug模式
 requests.SetDebug(false)
+```
+
+
+
+## 更灵活的参数传递 (Flexible Parameter Passing)
+
+`Request` 结构体中的参数（`Params`, `Headers`, `Cookies`, `Data`, `Files`, `Body`）现在支持 `any` 类型。您不再局限于特定的结构体，可以直接传入 `map`、`string` 或其他常见类型，库会自动进行转换。
+
+**支持的类型示例 (Supported Types Examples):**
+
+* **Params (Query String):**
+* `*url.Params`
+* `string` (e.g. "key=value&a=1")
+* `map[string]string`
+* `map[string][]string`
+* `map[string]int`
+* `map[string][]int`
+* `map[string]float64`
+* `map[string][]float64`
+* `map[string]interface{}` (支持递归解析)
+
+
+* **Headers:**
+* `*http.Header`
+* `string` (e.g. "User-Agent: abc\nAccept: */*")
+* `map[string]string`
+* `map[string][]string`
+* `map[string]interface{}` (值支持 string, int, float64, bool)
+* `map[string][]interface{}`
+
+
+* **Cookies:**
+* `*cookiejar.Jar`
+* `string` (e.g. "name=value; a=1")
+* `map[string]string`
+* `map[string]int`
+* `map[string]float64`
+* `map[string]interface{}` (值支持 string, int, float64, bool)
+
+
+* **Data (Form Data):**
+* `*url.Values`
+* `string` (e.g. "key=value&a=1")
+* `map[string]string`
+* `map[string][]string`
+* `map[string]int`
+* `map[string][]int`
+* `map[string]float64`
+* `map[string][]float64`
+* `map[string]interface{}` (支持递归解析)
+
+
+* **Files**
+* `*url.Files`
+* `map[string]string` (key为字段名, value为文件路径. 会自动提取文件名，ContentType默认为空)
+
+
+* **Body:**
+* `string`
+* `[]byte`
+* `io.Reader`
+
+**使用示例 (Usage):**
+
+```go
+import "github.com/wangluozhe/requests/url"
+
+req := &url.Request{
+    // 直接使用 map 传递查询参数
+    Params: map[string]string{
+        "page": "1",
+        "size": "20",
+    },
+    // 直接使用 map 传递 Header
+    Headers: map[string]string{
+        "Authorization": "Bearer token123",
+    },
+    // 直接传递字符串 Body
+    Body: "raw body content",
+}
+
 ```
 
 
@@ -172,7 +253,7 @@ r, err := requests.Get("https://httpbin.org/get", req)
 if err != nil {
     fmt.Println(err)
 }
-fmt.Println(r.Text)
+fmt.Println(r.Text())
 ```
 
 或者：
@@ -227,7 +308,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(r.Text)
+	fmt.Println(r.Text())
 }
 
 [{"repository":{"open_issues":0, "url":"https://github.com/...
@@ -268,34 +349,110 @@ func main(){
 
 
 
-## JSON 响应内容
+## Stream模式 (流式请求)
 
-Requests 中也有一个内置的 JSON 解码器，助你处理 JSON 数据（或者使用第三方库[go-simplejson](https://github.com/bitly/go-simplejson)）：
+默认情况下，requests 会立即下载响应体并将其全部加载到内存中 (`r.Content`)。如果你正在请求一个非常大的文件（例如 ISO 镜像、视频大文件），这可能会导致内存消耗过高。
 
-[go-simplejson文档](https://pkg.go.dev/github.com/bitly/go-simplejson)
+通过设置 `Stream: true`，你可以推迟下载响应体，直到你主动读取 `r.Body`。此时 `r.Content` 为空。
+
+**注意**：在 Stream 模式下，你需要手动处理 `r.Body` 的读取和关闭。
 
 ```go
 package main
 
 import (
 	"fmt"
-	"github.com/wangluozhe/requests"
+	"io"
+	"os"
+	"https://github.com/wangluozhe/requests"
+	"https://github.com/wangluozhe/requests/url"
 )
 
-func main(){
-    r, err := requests.Get("https://api.github.com/events", nil)
-    if err != nil{
-    	fmt.Println(err)
-    }
-    json, err := r.Json() // 推荐使用r.SimpleJson，自带的json解码使用太过于复杂
-    // json, err := r.SimpleJson()
-    fmt.Println(json, err)
-}
+func main() {
+	req := url.NewRequest()
+	req.Stream = true // 开启 Stream 模式
 
-{"Accept-Ranges":["bytes"],"Access-Control-Allow-Origin":["*"],"Access-Control...
+	//以此链接为例，请求大文件
+	r, err := requests.Get("[https://httpbin.org/stream-bytes/10240](https://httpbin.org/stream-bytes/10240)", req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	// 务必记得关闭 Body
+	defer r.Body.Close()
+
+	fmt.Println("Status:", r.StatusCode)
+
+	// 创建文件用于保存
+	out, _ := os.Create("large_file.dat")
+	defer out.Close()
+
+	// 将流式数据直接拷贝到文件，不占用过多内存
+	// 此时 r.Content 为 nil
+	n, err := io.Copy(out, r.Body)
+	if err != nil {
+		fmt.Println("Write error:", err)
+	}
+	fmt.Printf("Downloaded %d bytes", n)
+}
 ```
 
-如果 JSON 解码失败， `r.Json()` 就会返回一个异常。例如，响应内容是 401 (Unauthorized)，尝试访问 `r.Json()` 将会抛出 `map[] invalid character '(' after top-level value` 异常。
+
+
+## JSON 响应内容
+
+requests 内置了解析 JSON 的方法。现在支持直接解析到 `struct`、`map`，或者使用快捷方法直接获取字典。
+
+### 1. 解析到结构体 (推荐)
+
+利用 Go 的强类型特性，你可以定义一个结构体，直接将响应解析进去：
+
+```go
+type GithubEvent struct {
+	Type string `json:"type"`
+	Repo struct {
+		Name string `json:"name"`
+	} `json:"repo"`
+}
+
+var event []GithubEvent
+// 传入结构体指针
+err := r.Json(&event)
+if err != nil {
+    fmt.Println("解析失败:", err)
+}
+fmt.Println(event[0].Repo.Name)
+
+```
+
+### 2. 解析到 Map
+
+如果你不想定义结构体，可以将结果解析到 map 中：
+
+```go
+// 方法 A: 使用 Json() 传入 map 指针
+var result map[string]interface{}
+r.Json(&result)
+
+// 方法 B: 使用 JsonMap() 快捷方法
+result, err := r.JsonMap()
+fmt.Println(result["type"])
+
+```
+
+### 3. 使用 simplejson (可选)
+
+如果你习惯使用第三方库 [go-simplejson](https://github.com/bitly/go-simplejson) 进行链式操作，可以使用 `r.SimpleJson()`：
+
+```go
+js, err := r.SimpleJson()
+// 链式获取值
+repoName := js.GetIndex(0).Get("repo").Get("name").MustString()
+fmt.Println(repoName)
+
+```
+
+如果 JSON 解码失败，解析方法会返回错误。
 
 需要注意的是，成功调用 `r.Json()` 并**不**意味着响应的成功。有的服务器会在失败的响应中包含一个 JSON 对象（比如 HTTP 500 的错误细节）。这种 JSON 会被解码返回。要检查请求是否成功，请检查 `r.StatusCode` 是否和你的期望相同。
 
@@ -419,7 +576,7 @@ func main(){
     if err != nil {
         fmt.Println(err)
     }
-    fmt.Println("text:", r.Text)
+    fmt.Println("text:", r.Text())
 
     // 最好用fiddler抓包工具查看一下
 }
@@ -462,7 +619,7 @@ func main(){
     if err != nil {
         fmt.Println(err)
     }
-    fmt.Println("text:", r.Text)
+    fmt.Println("text:", r.Text())
 
     // 最好用fiddler抓包工具查看一下
 }
@@ -486,7 +643,7 @@ if err != nil {
     fmt.Println(err)
 }
 
-fmt.Println(r.Text)
+fmt.Println(r.Text())
 
 ...
 "form": {
@@ -513,7 +670,7 @@ if err != nil {
     fmt.Println(err)
 }
 
-fmt.Println(r.Text)
+fmt.Println(r.Text())
 
 ...
 "form": {
@@ -538,7 +695,7 @@ r, err := requests.Post("http://httpbin.org/post",req)
 if err != nil {
     fmt.Println(err)
 }
-fmt.Println(r.Text)
+fmt.Println(r.Text())
 
 ...
 "form": {
@@ -556,7 +713,7 @@ fmt.Println(r.Text)
 
 很多时候你想要发送的数据并非编码为表单形式的。如果你想传递一个 `json` 数据那么用下面的方法。
 
-你可以使用 `Json` 参数直接传递，然后它就会被自动编码。
+你可以使用 `Json` 参数直接传递，然后它就会被自动编码(任何可被 json.Marshal 处理的类型)。
 
 ```go
 package main
@@ -582,7 +739,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(r.Text)
+	fmt.Println(r.Text())
 }
 
 {
@@ -635,7 +792,7 @@ r, err := requests.Post("http://httpbin.org/post",req)
 if err != nil {
     fmt.Println(err)
 }
-fmt.Println(r.Text)
+fmt.Println(r.Text())
 
 ...
 "files": {
@@ -657,7 +814,7 @@ r, err := requests.Post("http://httpbin.org/post",req)
 if err != nil {
     fmt.Println(err)
 }
-fmt.Println(r.Text)
+fmt.Println(r.Text())
 
 ...
 "form": {
@@ -684,7 +841,7 @@ func main() {
 	req.Headers = headers
 	req.Body = "testdata"
 	r, _ := requests.Post("https://httpbin.org/post", req)
-	fmt.Println(r.Text)
+	fmt.Println(r.Text())
 }
 ```
 
@@ -794,7 +951,7 @@ if err != nil {
     fmt.Println(err)
 }
 
-fmt.Println(r.Text)
+fmt.Println(r.Text())
 
 {"cookies": {"cookies_are": "working"}}
 ```
@@ -834,7 +991,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(r.Text)
+	fmt.Println(r.Text())
 }
 
 
@@ -963,7 +1120,7 @@ func main() {
 	if err != nil{
 		fmt.Println(err)
 	}
-	fmt.Println("text:",r.Text)
+	fmt.Println("text:",r.Text())
 }
 
 {
@@ -997,6 +1154,111 @@ session.Cert = []string{"cert","key"}
 
 
 
+
+## Hook 功能 (Hooks)
+
+支持在请求参数解析阶段注入自定义逻辑。如果您需要对传入的 `any` 类型参数进行特殊的预处理，可以通过设置 Hook 函数来实现。
+
+**支持的 Hook 类型:**
+
+* `ParamsHook`
+* `HeadersHook`
+* `CookiesHook`
+* `DataHook`
+* `FilesHook`
+* `BodyHook`
+
+**示例 (Example):**
+
+```go
+req := &url.Request{
+    Params: "custom_format_string",
+    // 自定义 Params 解析逻辑
+    ParamsHook: func(p any) *url.Params {
+        if s, ok := p.(string); ok {
+            // 假设只需处理特殊字符串
+            params := url.NewParams()
+            params.Set("key", s)
+            return params
+        }
+        return url.ParseParams(p) // 可以使用ParseParams进行兜底，Files和Body没有Parse，但可以自己手动创建
+    },
+}
+
+```
+
+
+
+## Session 中间件 (Session Middleware)
+
+Session 级别支持中间件（Middleware），允许您在请求发送前后拦截并处理请求。这采用了经典的“洋葱模型”，适用于日志记录、鉴权、统一错误处理等场景。
+
+**定义中间件:**
+
+中间件函数的类型定义为：`type Middleware func(next Handler) Handler`
+
+**示例：日志与鉴权中间件 (Example: Logging & Auth)**
+
+```go
+package main
+
+import (
+	"log"
+	"time"
+	"github.com/wangluozhe/requests"
+	"github.com/wangluozhe/requests/models"
+	"github.com/wangluozhe/requests/url"
+)
+
+// 1. 定义日志中间件
+func LoggingMiddleware(next requests.Handler) requests.Handler {
+	return func(preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+		start := time.Now()
+		log.Printf("[Middleware] Start Request: %s %s", preq.Method, preq.Url)
+
+		// 执行下一个 Handler
+		resp, err := next(preq, req)
+
+		duration := time.Since(start)
+		log.Printf("[Middleware] End Request. Duration: %v", duration)
+		return resp, err
+	}
+}
+
+// 2. 定义鉴权中间件
+func AuthMiddleware(token string) requests.Middleware {
+	return func(next requests.Handler) requests.Handler {
+		return func(preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+			// 自动添加 Token 到 Header
+			if preq.Headers != nil {
+				preq.Headers.Set("Authorization", "Bearer "+token)
+			}
+			return next(preq, req)
+		}
+	}
+}
+
+func main() {
+	// 创建 Session
+	s := requests.NewSession()
+
+	// 注册中间件（注意顺序：先注册的先执行）
+	s.Use(LoggingMiddleware)
+	s.Use(AuthMiddleware("my-secret-token"))
+
+	// 发送请求
+	// 该请求会自动经过 LoggingMiddleware 和 AuthMiddleware
+	resp, err := s.Get("https://httpbin.org/get", nil)
+	if err != nil {
+		panic(err)
+	}
+	println(resp.Text())
+}
+
+```
+
+
+
 ## JA3指纹
 
 requests也支持JA3指纹的修改，可以让你在访问的时候使用你自己定义的JA3指纹进行TLS握手访问，但是请注意，JA3指纹必须符合要求，不能随便更改，最好使用wireshark或者ja3er.com获取标准指纹，而不是随便输入一串数字。
@@ -1011,7 +1273,7 @@ r, err := requests.Get("https://ja3er.com/json", req)
 if err != nil {
 	fmt.Println(err)
 }
-fmt.Println(r.Text)
+fmt.Println(r.Text())
 
 {"ja3_hash":"b32309a26951912be7dba376398abc3b", "transport": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36"}
 ```
@@ -1109,7 +1371,7 @@ func main() {
 	fmt.Println(r.Request.Headers)
 	fmt.Println("url:", r.Url)
 	fmt.Println("headers:", r.Headers)
-	fmt.Println("text:", r.Text)
+	fmt.Println("text:", r.Text())
 }
 
 ```
@@ -1243,7 +1505,7 @@ func main() {
 	fmt.Println(r.Request.Headers)
 	fmt.Println("url:", r.Url)
 	fmt.Println("headers:", r.Headers)
-	fmt.Println("text:", r.Text)
+	fmt.Println("text:", r.Text())
 }
 
 ```
@@ -1353,7 +1615,7 @@ func main() {
 	fmt.Println(r.Request.Headers)
 	fmt.Println("url:", r.Url)
 	fmt.Println("headers:", r.Headers)
-	fmt.Println("text:", r.Text)
+	fmt.Println("text:", r.Text())
 }
 
 // 模拟后的结果

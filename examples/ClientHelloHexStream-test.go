@@ -49,7 +49,7 @@ func main() {
 	fmt.Println(r.Request.Headers)
 	fmt.Println("url:", r.Url)
 	fmt.Println("headers:", r.Headers)
-	fmt.Println("text:", r.Text)
+	fmt.Println("text:", r.Text())
 	r, err = requests.Get("https://tls.peet.ws/api/all", req)
 	if err != nil {
 		fmt.Println(err)
@@ -57,5 +57,5 @@ func main() {
 	fmt.Println(r.Request.Headers)
 	fmt.Println("url:", r.Url)
 	fmt.Println("headers:", r.Headers)
-	fmt.Println("text:", r.Text)
+	fmt.Println("text:", r.Text())
 }

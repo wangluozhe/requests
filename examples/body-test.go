@@ -15,5 +15,5 @@ func main() {
 	req.Headers = headers
 	req.Body = bytes.NewReader([]byte{0x00, 0x01, 0x02, 0x03, 0x04})
 	r, _ := requests.Post("https://httpbin.org/post", req)
-	fmt.Println(r.Text)
+	fmt.Println(r.Text())
 }

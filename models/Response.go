@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -46,7 +47,6 @@ type Response struct {
 	Url         string
 	Headers     http.Header
 	Cookies     []*http.Cookie
-	Text        string
 	Content     []byte
 	Body        io.ReadCloser
 	StatusCode  int
@@ -64,12 +64,27 @@ func (res *Response) Close() error {
 		h.Close()
 	}
 	res.Content = nil
-	res.Text = ""
 	return nil
 }
 
-// 使用自带库JSON解析
-func (res *Response) Json() (map[string]interface{}, error) {
+// 返回字符串
+func (res *Response) Text() string {
+	if res.Content == nil {
+		return ""
+	}
+	return string(res.Content)
+}
+
+// Json 解析到传入的结构体或 Map 中
+func (res *Response) Json(v any) error {
+	if res.Content == nil || len(res.Content) == 0 {
+		return errors.New("response content is empty")
+	}
+	return json.Unmarshal(res.Content, v)
+}
+
+// 使用自带库JSON解析，兼容之前版本的Json
+func (res *Response) JsonMap() (map[string]interface{}, error) {
 	js := make(map[string]interface{})
 	err := json.Unmarshal(res.Content, &js)
 	return js, err

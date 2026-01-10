@@ -114,7 +114,7 @@ func main() {
 				fmt.Printf("Request %d got status code: %d\n", i, r.StatusCode)
 				return
 			}
-			fmt.Printf("Request %d response: %s\n", i, r.Text[:100]) // 只打印前100个字符以避免输出过多
+			fmt.Printf("Request %d response: %s\n", i, r.Text()[:100]) // 只打印前100个字符以避免输出过多
 		}(i)
 	}
 

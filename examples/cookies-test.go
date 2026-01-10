@@ -30,5 +30,5 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(r.Text)
+	fmt.Println(r.Text())
 }
