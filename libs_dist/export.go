@@ -186,7 +186,7 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 		if req.Headers == nil {
 			req.Headers = url.NewHeaders()
 		}
-		(*req.Headers)[http.PHeaderOrderKey] = requestParams.PseudoHeaderOrder
+		(*req.GetHeaders())[http.PHeaderOrderKey] = requestParams.PseudoHeaderOrder
 	}
 
 	if requestParams.TLSExtensions != "" {
