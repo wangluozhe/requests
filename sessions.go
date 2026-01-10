@@ -30,6 +30,12 @@ import (
 	"github.com/wangluozhe/requests/utils"
 )
 
+// Handler 定义处理请求的函数类型
+type Handler func(preq *models.PrepareRequest, req *url.Request) (*models.Response, error)
+
+// Middleware 定义中间件函数类型
+type Middleware func(next Handler) Handler
+
 // 默认User—Agent
 func default_user_agent() string {
 	return USER_AGENT
@@ -172,6 +178,7 @@ func NewSession() *Session {
 	session := &Session{
 		Headers:        default_headers(),
 		Cookies:        nil,
+		Timeout:        time.Duration(DEFAULT_TIMEOUT) * time.Second,
 		Verify:         true,
 		MaxRedirects:   DEFAULT_REDIRECT_LIMIT,
 		transport:      nil,
@@ -211,6 +218,7 @@ type Session struct {
 	Headers        *http.Header
 	Cookies        *cookiejar.Jar
 	Auth           []string
+	Timeout        time.Duration
 	Proxies        string
 	Verify         bool
 	Cert           []string
@@ -220,9 +228,15 @@ type Session struct {
 	TLSExtensions  *http.TLSExtensions
 	HTTP2Settings  *http.HTTP2Settings
 	MaxRedirects   int
+	Middlewares    []Middleware // 中间件列表
 	transport      *http.Transport
 	transportCache map[string]*http.Transport
 	cacheLock      sync.Mutex
+}
+
+// Use 添加中间件
+func (s *Session) Use(middleware ...Middleware) {
+	s.Middlewares = append(s.Middlewares, middleware...)
 }
 
 // 预请求处理
@@ -283,7 +297,16 @@ func (s *Session) Request(method, rawurl string, request *url.Request) (*models.
 	if err != nil {
 		return nil, err
 	}
-	resp, err := s.Send(preq, request)
+
+	// 构造中间件调用链，s.Send 作为最底层的 Handler
+	var handler Handler = s.Send
+	// 倒序应用中间件，保证 Use 的顺序即为执行顺序
+	for i := len(s.Middlewares) - 1; i >= 0; i-- {
+		handler = s.Middlewares[i](handler)
+	}
+
+	// 执行 Handler (中间件链 -> Send)
+	resp, err := handler(preq, request)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +370,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	// 设置证书
 	cert := merge_setting(req.Cert, s.Cert).([]string)
 	// 设置超时时间
-	timeout := merge_setting(req.Timeout, DEFAULT_TIMEOUT).(time.Duration)
+	timeout := merge_setting(req.Timeout, s.Timeout).(time.Duration)
 	// 设置ja3
 	ja3String := merge_setting(req.Ja3, s.Ja3).(string)
 	// 设置随机ja3
@@ -691,13 +714,13 @@ func DecompressBody(body io.ReadCloser, encoding string) (io.ReadCloser, error) 
 		if err != nil {
 			return nil, err
 		}
-		return r, nil // gzip.Reader 自动处理流式解压[7](@ref)
+		return r, nil // gzip.Reader 自动处理流式解压
 
 	case "deflate":
-		return flate.NewReader(body), nil // flate.Reader 直接返回流式接口[7,8](@ref)
+		return flate.NewReader(body), nil // flate.Reader 直接返回流式接口
 
 	case "br":
-		return io.NopCloser(brotli.NewReader(body)), nil // brotli.Reader 实现 io.Reader 接口[1](@ref)
+		return io.NopCloser(brotli.NewReader(body)), nil // brotli.Reader 实现 io.Reader 接口
 
 	default:
 		return body, nil // 非压缩数据原样返回

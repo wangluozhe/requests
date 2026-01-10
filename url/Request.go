@@ -14,6 +14,15 @@ import (
 	"github.com/wangluozhe/chttp/cookiejar"
 )
 
+// 定义 Hook 函数类型，方便阅读
+type ParamsHook func(any) *Params
+type HeadersHook func(any) *http.Header
+type CookiesHook func(any, string) *cookiejar.Jar
+type DataHook func(any) *Values
+type FilesHook func(any) *Files
+type BodyHook func(any) io.Reader
+
+// NewRequest 创建默认请求
 func NewRequest() *Request {
 	return &Request{
 		AllowRedirects: true,
@@ -21,6 +30,7 @@ func NewRequest() *Request {
 	}
 }
 
+// Request 配置请求参数的结构体
 type Request struct {
 	// Params 设置 URL 查询参数.
 	// 支持的类型 (Accepted types):
@@ -94,6 +104,14 @@ type Request struct {
 	ForceHTTP1     bool
 	TLSExtensions  *http.TLSExtensions
 	HTTP2Settings  *http.HTTP2Settings
+
+	// --- 解析中间件 (Hooks) ---
+	ParamsHook  ParamsHook
+	HeadersHook HeadersHook
+	CookiesHook CookiesHook
+	DataHook    DataHook
+	FilesHook   FilesHook
+	BodyHook    BodyHook
 }
 
 func (req *Request) Hash() string {
@@ -109,6 +127,10 @@ func (req *Request) Hash() string {
 
 // GetParams 获取 Params 结构体
 func (req *Request) GetParams() *Params {
+	if req.ParamsHook != nil {
+		return req.ParamsHook(req.Params)
+	}
+
 	if req.Params == nil {
 		return nil
 	}
@@ -120,6 +142,10 @@ func (req *Request) GetParams() *Params {
 
 // GetHeaders 获取 Headers 结构体
 func (req *Request) GetHeaders() *http.Header {
+	if req.HeadersHook != nil {
+		return req.HeadersHook(req.Headers)
+	}
+
 	if req.Headers == nil {
 		return nil
 	}
@@ -132,6 +158,10 @@ func (req *Request) GetHeaders() *http.Header {
 // GetCookies 获取 Cookies 结构体
 // 注意：解析字符串 Cookies 需要 rawurl 来确定域名，请在 Session 逻辑中传入
 func (req *Request) GetCookies(rawurl string) *cookiejar.Jar {
+	if req.CookiesHook != nil {
+		return req.CookiesHook(req.Cookies, rawurl)
+	}
+
 	if req.Cookies == nil {
 		return nil
 	}
@@ -143,6 +173,10 @@ func (req *Request) GetCookies(rawurl string) *cookiejar.Jar {
 
 // GetData 获取 Data (Values) 结构体
 func (req *Request) GetData() *Values {
+	if req.DataHook != nil {
+		return req.DataHook(req.Data)
+	}
+
 	if req.Data == nil {
 		return nil
 	}
@@ -154,6 +188,10 @@ func (req *Request) GetData() *Values {
 
 // GetFiles 获取 Files 结构体
 func (req *Request) GetFiles() *Files {
+	if req.FilesHook != nil {
+		return req.FilesHook(req.Files)
+	}
+
 	if req.Files == nil {
 		return nil
 	}
@@ -174,6 +212,10 @@ func (req *Request) GetFiles() *Files {
 
 // GetBody 获取 Body io.Reader
 func (req *Request) GetBody() io.Reader {
+	if req.BodyHook != nil {
+		return req.BodyHook(req.Body)
+	}
+
 	if req.Body == nil {
 		return nil
 	}
