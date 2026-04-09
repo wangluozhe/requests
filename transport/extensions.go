@@ -1,8 +1,8 @@
 package transport
 
 import (
-	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	utls "github.com/refraction-networking/utls"
@@ -177,7 +177,8 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
 				signature_algorithms = val
 			} else {
-				hexInt, _ := strconv.ParseInt(s, 0, 0)
+				s = strings.TrimPrefix(s, "0x")
+				hexInt, _ := strconv.ParseInt(s, 16, 0)
 				signature_algorithms = utls.SignatureScheme(hexInt)
 			}
 			extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms = append(extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms, signature_algorithms)
@@ -193,9 +194,7 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 		mutex.RUnlock()
 	}
 	if e.RecordSizeLimit != 0 {
-		hexStr := fmt.Sprintf("0x%v", e.RecordSizeLimit)
-		hexInt, _ := strconv.ParseInt(hexStr, 0, 0)
-		extensions.RecordSizeLimit = &utls.FakeRecordSizeLimitExtension{uint16(hexInt)}
+		extensions.RecordSizeLimit = &utls.FakeRecordSizeLimitExtension{uint16(e.RecordSizeLimit)}
 	}
 	if e.DelegatedCredentials != nil {
 		extensions.DelegatedCredentials = &utls.DelegatedCredentialsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
@@ -205,8 +204,8 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
 				signature_algorithms = val
 			} else {
-				hexStr := fmt.Sprintf("0x%v", e.RecordSizeLimit)
-				hexInt, _ := strconv.ParseInt(hexStr, 0, 0)
+				s = strings.TrimPrefix(s, "0x")
+				hexInt, _ := strconv.ParseInt(s, 16, 0)
 				signature_algorithms = utls.SignatureScheme(hexInt)
 			}
 			extensions.DelegatedCredentials.SupportedSignatureAlgorithms = append(extensions.DelegatedCredentials.SupportedSignatureAlgorithms, signature_algorithms)
@@ -237,8 +236,8 @@ func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
 			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
 				signature_algorithms_cert = val
 			} else {
-				hexStr := fmt.Sprintf("0x%v", e.RecordSizeLimit)
-				hexInt, _ := strconv.ParseInt(hexStr, 0, 0)
+				s = strings.TrimPrefix(s, "0x")
+				hexInt, _ := strconv.ParseInt(s, 16, 0)
 				signature_algorithms_cert = utls.SignatureScheme(hexInt)
 			}
 			extensions.SignatureAlgorithmsCert.SupportedSignatureAlgorithms = append(extensions.SignatureAlgorithmsCert.SupportedSignatureAlgorithms, signature_algorithms_cert)
