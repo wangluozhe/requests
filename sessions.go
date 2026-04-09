@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -78,51 +77,68 @@ func merge_cookies(rawurl string, cookieJar *cookiejar.Jar, cookie *cookiejar.Ja
 	}
 }
 
+func cloneParams(params *url.Params) *url.Params {
+	if params == nil {
+		return nil
+	}
+	cloned := url.NewParams()
+	for key, values := range params.Values() {
+		for _, value := range values {
+			cloned.Add(key, value)
+		}
+	}
+	return cloned
+}
+
 // 合并参数
 func merge_setting(request_setting, session_setting interface{}) interface{} {
 	switch (request_setting).(type) {
 	case *url.Params:
-		merged_setting := session_setting.(*url.Params)
-		if merged_setting == nil {
+		sessionParams := session_setting.(*url.Params)
+		if sessionParams == nil {
 			return request_setting
 		}
-		requestd_setting := request_setting.(*url.Params)
-		if requestd_setting == nil {
-			return merged_setting
+		requestParams := request_setting.(*url.Params)
+		if requestParams == nil {
+			return cloneParams(sessionParams)
 		}
-		for _, key := range requestd_setting.Keys() {
-			merged_setting.Set(key, requestd_setting.Get(key))
+		merged := cloneParams(sessionParams)
+		for key, values := range requestParams.Values() {
+			merged.Del(key)
+			for _, value := range values {
+				merged.Add(key, value)
+			}
 		}
-		return merged_setting
+		return merged
 	case *http.Header:
-		merged_setting := session_setting.(*http.Header)
-		if merged_setting == nil {
+		sessionHeaders := session_setting.(*http.Header)
+		if sessionHeaders == nil {
 			return request_setting
 		}
-		requestd_setting := request_setting.(*http.Header)
-		if requestd_setting == nil {
-			return merged_setting
+		requestHeaders := request_setting.(*http.Header)
+		if requestHeaders == nil {
+			cloned := sessionHeaders.Clone()
+			return &cloned
 		}
-		for key, _ := range *requestd_setting {
+		merged := sessionHeaders.Clone()
+		for key := range *requestHeaders {
 			if key == http.PHeaderOrderKey || key == http.HeaderOrderKey || key == http.UnChangedHeaderKey {
 				continue
 			}
-			merged_setting.Set(key, (*requestd_setting)[key][0])
+			values := append([]string(nil), (*requestHeaders)[key]...)
+			merged[key] = values
 		}
-		return merged_setting
+		return &merged
 	case []string:
-		merged_setting := session_setting.([]string)
-		if merged_setting == nil {
+		sessionSlice := session_setting.([]string)
+		if sessionSlice == nil {
 			return request_setting
 		}
-		requestd_setting := request_setting.([]string)
-		if requestd_setting == nil {
-			return merged_setting
+		requestSlice := request_setting.([]string)
+		if requestSlice == nil {
+			return append([]string(nil), sessionSlice...)
 		}
-		for index, value := range requestd_setting {
-			merged_setting[index] = value
-		}
-		return merged_setting
+		return append([]string(nil), requestSlice...)
 	case bool:
 		merged_setting := session_setting.(bool)
 		requestd_setting := request_setting.(bool)
@@ -139,6 +155,7 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 		if requestd_setting == "" {
 			return merged_setting
 		}
+		return requestd_setting
 	case *http.TLSExtensions:
 		merged_setting := session_setting.(*http.TLSExtensions)
 		if merged_setting == nil {
@@ -195,7 +212,7 @@ func NewSession() *Session {
 		TLSHandshakeTimeout:   DEFAULT_TIMEOUT * time.Second,
 		ResponseHeaderTimeout: DEFAULT_TIMEOUT * time.Second,
 		TLSClientConfig: &utls.Config{
-			InsecureSkipVerify:                 session.Verify,
+			InsecureSkipVerify:                 !session.Verify,
 			ClientSessionCache:                 utls.NewLRUClientSessionCache(0),
 			OmitEmptyPsk:                       true,
 			PreferSkipResumptionOnNilExtension: true,
@@ -401,24 +418,29 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		proxies, verify, certKey, ja3String, randomJA3, forceHTTP1, tlsExtensionsHash(tlsExtensions), http2SettingsHash(http2Settings), disableKeepAlives,
 	)
 
-	s.cacheLock.Lock() // 加锁保护缓存
+	transport, err := func() (*http.Transport, error) {
+		s.cacheLock.Lock() // 加锁保护缓存
+		defer s.cacheLock.Unlock()
 
-	transport, found := s.transportCache[cacheKey]
-	if !found {
+		tr, found := s.transportCache[cacheKey]
+		if found {
+			return tr, nil
+		}
+
 		// 缓存未命中，创建新的 Transport
-		transport = s.transport.Clone() // 从会话的基础 transport 克隆
-		transport.TLSClientConfig = s.transport.TLSClientConfig.Clone()
+		tr = s.transport.Clone() // 从会话的基础 transport 克隆
+		tr.TLSClientConfig = s.transport.TLSClientConfig.Clone()
 
 		if proxies != "" {
 			u1, err := url2.Parse(proxies)
 			if err != nil {
 				return nil, err
 			}
-			transport.Proxy = http.ProxyURL(u1)
+			tr.Proxy = http.ProxyURL(u1)
 		}
 
-		if verify != transport.TLSClientConfig.InsecureSkipVerify {
-			transport.TLSClientConfig.InsecureSkipVerify = verify
+		if !verify != tr.TLSClientConfig.InsecureSkipVerify {
+			tr.TLSClientConfig.InsecureSkipVerify = !verify
 		}
 
 		if cert != nil {
@@ -438,29 +460,29 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			certPool := x509.NewCertPool()
 			ok := certPool.AppendCertsFromPEM(cert_byte)
 			if !ok {
-				return nil, errors.New("failed to parse root certificate")
+				return nil, fmt.Errorf("failed to parse root certificate")
 			}
-			transport.TLSClientConfig.RootCAs = certPool
-			transport.TLSClientConfig.Certificates = []utls.Certificate{certs}
+			tr.TLSClientConfig.RootCAs = certPool
+			tr.TLSClientConfig.Certificates = []utls.Certificate{certs}
 		}
 
-		if ja3String != "" && strings.HasPrefix(preq.Url, "https") && transport.H2Transport == nil {
-			if transport.TLSClientConfig.ClientSessionCache == nil {
-				transport.TLSClientConfig.ClientSessionCache = utls.NewLRUClientSessionCache(0)
+		if ja3String != "" && strings.HasPrefix(preq.Url, "https") && tr.H2Transport == nil {
+			if tr.TLSClientConfig.ClientSessionCache == nil {
+				tr.TLSClientConfig.ClientSessionCache = utls.NewLRUClientSessionCache(0)
 			}
-			if transport.TLSClientConfig.OmitEmptyPsk == false {
-				transport.TLSClientConfig.OmitEmptyPsk = true
+			if tr.TLSClientConfig.OmitEmptyPsk == false {
+				tr.TLSClientConfig.OmitEmptyPsk = true
 			}
-			if strings.Index(strings.Split(ja3String, ",")[2], "-41") != -1 {
-				transport.TLSClientConfig.SessionTicketsDisabled = false
+			if strings.Contains(strings.Split(ja3String, ",")[2], "-41") {
+				tr.TLSClientConfig.SessionTicketsDisabled = false
 			}
-			if transport.H2Transport == nil {
+			if tr.H2Transport == nil {
 				var h2 *http.HTTP2Transport
-				h2, _ = http.HTTP2ConfigureTransports(transport)
-				transport.JA3 = ja3String
-				transport.UserAgent = s.Headers.Get("User-Agent")
-				transport.RandomJA3 = randomJA3
-				transport.ForceHTTP1 = forceHTTP1
+				h2, _ = http.HTTP2ConfigureTransports(tr)
+				tr.JA3 = ja3String
+				tr.UserAgent = s.Headers.Get("User-Agent")
+				tr.RandomJA3 = randomJA3
+				tr.ForceHTTP1 = forceHTTP1
 				// 自定义TLS指纹信息
 				h2.HTTP2Settings = http2Settings
 				if http2Settings != nil {
@@ -480,26 +502,28 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 						}
 					}
 				}
-				transport.TLSExtensions = tlsExtensions
-				transport.H2Transport = h2
+				tr.TLSExtensions = tlsExtensions
+				tr.H2Transport = h2
 			}
-		} else if ja3String != "" && strings.HasPrefix(preq.Url, "https") && transport.H2Transport != nil {
-			transport.JA3 = ja3String
-			transport.UserAgent = s.Headers.Get("User-Agent")
-			transport.RandomJA3 = randomJA3
-			transport.ForceHTTP1 = forceHTTP1
-			transport.TLSExtensions = tlsExtensions
-			transport.H2Transport.(*http.HTTP2Transport).HTTP2Settings = http2Settings
+		} else if ja3String != "" && strings.HasPrefix(preq.Url, "https") && tr.H2Transport != nil {
+			tr.JA3 = ja3String
+			tr.UserAgent = s.Headers.Get("User-Agent")
+			tr.RandomJA3 = randomJA3
+			tr.ForceHTTP1 = forceHTTP1
+			tr.TLSExtensions = tlsExtensions
+			tr.H2Transport.(*http.HTTP2Transport).HTTP2Settings = http2Settings
 		}
 
 		if disableKeepAlives {
-			transport.DisableKeepAlives = true
+			tr.DisableKeepAlives = true
 		}
 
-		s.transportCache[cacheKey] = transport // 将新创建的 transport 存入缓存
+		s.transportCache[cacheKey] = tr // 将新创建的 transport 存入缓存
+		return tr, nil
+	}()
+	if err != nil {
+		return nil, err
 	}
-
-	s.cacheLock.Unlock() // 解锁
 
 	// --- 缓存逻辑结束 ---
 
@@ -516,7 +540,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		if client.CheckRedirect == nil {
 			client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
 				if len(via) > s.MaxRedirects {
-					return errors.New(fmt.Sprintf("redirects number gt %i", s.MaxRedirects))
+					return fmt.Errorf("redirects number gt %d", s.MaxRedirects)
 				}
 				if request != nil {
 					preq.Url = request.URL.String()
