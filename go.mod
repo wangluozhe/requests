@@ -6,7 +6,7 @@ require (
 	github.com/andybalholm/brotli v1.1.1
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/google/uuid v1.3.0
-	github.com/refraction-networking/utls v1.8.1
+	github.com/refraction-networking/utls v1.8.2
 	github.com/wangluozhe/chttp v1.0.20
 	golang.org/x/crypto v0.36.0
 )
