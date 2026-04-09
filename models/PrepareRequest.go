@@ -186,7 +186,7 @@ func (pr *PrepareRequest) prepare_content_length(body string) {
 		if length > 0 {
 			pr.Headers.Set("Content-Length", strconv.Itoa(length))
 		}
-	} else if (pr.Method != "GET" || pr.Method != "HEAD") && pr.Headers.Get("Content-Length") == "" {
+	} else if pr.Method != "GET" && pr.Method != "HEAD" && pr.Headers.Get("Content-Length") == "" {
 		pr.Headers.Set("Content-Length", "0")
 	}
 }
