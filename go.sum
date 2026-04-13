@@ -20,8 +20,8 @@ github.com/refraction-networking/utls v1.8.2 h1:j4Q1gJj0xngdeH+Ox/qND11aEfhpgoEv
 github.com/refraction-networking/utls v1.8.2/go.mod h1:jkSOEkLqn+S/jtpEHPOsVv/4V4EVnelwbMQl4vCWXAM=
 github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
-github.com/wangluozhe/chttp v1.1.0 h1:2WfCd88dzCmbIy1KY02bWvkMDtX9O9XDlD7rdYDDB1I=
-github.com/wangluozhe/chttp v1.1.0/go.mod h1:qL17hBJI3mew9vF2r5FEkA7HHh1bbFSER4Oia6NmDRk=
+github.com/wangluozhe/chttp v1.1.1 h1:8Qk0I3VfBdfx6ZZUN9eRprNsHdC6r6Fwv8eoAScpSsE=
+github.com/wangluozhe/chttp v1.1.1/go.mod h1:qL17hBJI3mew9vF2r5FEkA7HHh1bbFSER4Oia6NmDRk=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZqKjWU=
