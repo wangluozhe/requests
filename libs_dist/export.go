@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	url2 "net/url"
 	"strings"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/wangluozhe/chttp/cookiejar"
 	"github.com/wangluozhe/requests"
 	"github.com/wangluozhe/requests/libs"
+	"github.com/wangluozhe/requests/models"
 	ja3 "github.com/wangluozhe/requests/transport"
 	"github.com/wangluozhe/requests/url"
 	"github.com/wangluozhe/requests/utils"
@@ -30,6 +32,14 @@ var unsafePointersLock = sync.Mutex{}
 var errorFormat = "{\"err\": \"%v\"}"
 
 var sessionsPool = sync.Map{}
+
+// StreamEntry 保存一个活跃的流式响应连接
+type StreamEntry struct {
+	Response *models.Response
+	Body     io.ReadCloser
+}
+
+var streamPool = sync.Map{}
 
 func GetSession(id string) *requests.Session {
 	cookies, _ := cookiejar.New(nil)
@@ -206,6 +216,10 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 		}
 		req.HTTP2Settings = ja3.ToHTTP2Settings(http2Settings)
 	}
+
+	if requestParams.Stream {
+		req.Stream = true
+	}
 	return req, nil
 }
 
@@ -239,6 +253,143 @@ func freeSession(sessionId *C.char) {
 //export setDebug
 func setDebug(enable bool) {
 	requests.SetDebug(enable)
+}
+
+//export stream_request
+func stream_request(requestParamsChar *C.char) *C.char {
+	requestParamsString := C.GoString(requestParamsChar)
+	requestParams := libs.RequestParams{}
+	err := json.Unmarshal([]byte(requestParamsString), &requestParams)
+	if err != nil {
+		return C.CString(fmt.Sprintf(errorFormat, "stream_request->json.Unmarshal failed: "+err.Error()))
+	}
+
+	// 强制开启 Stream 模式
+	requestParams.Stream = true
+
+	req, err := buildRequest(requestParams)
+	if err != nil {
+		return C.CString(fmt.Sprintf(errorFormat, "stream_request->buildRequest failed: "+err.Error()))
+	}
+
+	session := GetSession(requestParams.Id)
+	response, err := session.Request(requestParams.Method, requestParams.Url, req)
+	if err != nil {
+		return C.CString(fmt.Sprintf(errorFormat, "stream_request->session.Request failed: "+err.Error()))
+	}
+
+	// 生成 stream_id，将 response 存入流连接池（不关闭 body）
+	streamId := uuid.New().String()
+	streamPool.Store(streamId, &StreamEntry{
+		Response: response,
+		Body:     response.Body,
+	})
+
+	// 返回元信息（不包含 body 内容）
+	responseParams := make(map[string]interface{})
+	responseParams["stream_id"] = streamId
+	responseParams["url"] = response.Url
+	responseParams["headers"] = response.Headers
+	responseParams["cookies"] = response.Cookies
+	responseParams["status_code"] = response.StatusCode
+
+	responseParamsString, err := json.Marshal(responseParams)
+	if err != nil {
+		return C.CString(fmt.Sprintf(errorFormat, "stream_request->json.Marshal failed: "+err.Error()))
+	}
+	responseString := C.CString(string(responseParamsString))
+
+	unsafePointersLock.Lock()
+	unsafePointers[streamId] = responseString
+	defer unsafePointersLock.Unlock()
+
+	return responseString
+}
+
+//export stream_read
+func stream_read(streamIdChar *C.char, size C.int) *C.char {
+	streamId := C.GoString(streamIdChar)
+
+	entry, ok := streamPool.Load(streamId)
+	if !ok {
+		return C.CString(fmt.Sprintf(errorFormat, "stream_read->stream not found: "+streamId))
+	}
+
+	streamEntry := entry.(*StreamEntry)
+	bufSize := int(size)
+	if bufSize <= 0 {
+		bufSize = 4096
+	}
+
+	buf := make([]byte, bufSize)
+	n, err := streamEntry.Body.Read(buf)
+
+	result := make(map[string]interface{})
+	if n > 0 {
+		result["data"] = utils.Base64Encode(buf[:n])
+	} else {
+		result["data"] = ""
+	}
+
+	if err == io.EOF {
+		result["eof"] = true
+	} else if err != nil {
+		return C.CString(fmt.Sprintf(errorFormat, "stream_read->Read failed: "+err.Error()))
+	} else {
+		result["eof"] = false
+	}
+
+	resultString, err := json.Marshal(result)
+	if err != nil {
+		return C.CString(fmt.Sprintf(errorFormat, "stream_read->json.Marshal failed: "+err.Error()))
+	}
+
+	// stream_read 返回的指针用 stream_id + "_read" 作为 key 管理
+	// 每次调用会覆盖上一次的指针，避免内存泄漏
+	readKey := streamId + "_read"
+	unsafePointersLock.Lock()
+	if oldPtr, exists := unsafePointers[readKey]; exists && oldPtr != nil {
+		C.free(unsafe.Pointer(oldPtr))
+	}
+	responseString := C.CString(string(resultString))
+	unsafePointers[readKey] = responseString
+	unsafePointersLock.Unlock()
+
+	return responseString
+}
+
+//export stream_close
+func stream_close(streamIdChar *C.char) {
+	streamId := C.GoString(streamIdChar)
+
+	entry, ok := streamPool.Load(streamId)
+	if !ok {
+		return
+	}
+
+	streamEntry := entry.(*StreamEntry)
+	if streamEntry.Body != nil {
+		streamEntry.Body.Close()
+	}
+
+	streamPool.Delete(streamId)
+
+	// 清理相关的 unsafePointers
+	unsafePointersLock.Lock()
+	defer unsafePointersLock.Unlock()
+
+	// 清理 stream_id 对应的指针
+	if ptr, exists := unsafePointers[streamId]; exists && ptr != nil {
+		C.free(unsafe.Pointer(ptr))
+		delete(unsafePointers, streamId)
+	}
+
+	// 清理 stream_read 对应的指针
+	readKey := streamId + "_read"
+	if ptr, exists := unsafePointers[readKey]; exists && ptr != nil {
+		C.free(unsafe.Pointer(ptr))
+		delete(unsafePointers, readKey)
+	}
 }
 
 func main() {

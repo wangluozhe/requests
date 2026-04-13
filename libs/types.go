@@ -24,4 +24,5 @@ type RequestParams struct {
 	PseudoHeaderOrder  []string               `json:"PseudoHeaderOrder"`
 	TLSExtensions      string                 `json:"TLSExtensions"`
 	HTTP2Settings      string                 `json:"HTTP2Settings"`
+	Stream             bool                   `json:"Stream"`
 }
