@@ -40,12 +40,12 @@ func ParseValues(data interface{}) *Values {
 		}
 	case map[string]float64:
 		for key, value := range v {
-			p.Set(key, strconv.Itoa(int(value)))
+			p.Set(key, strconv.FormatFloat(value, 'f', -1, 64))
 		}
 	case map[string][]float64:
 		for key, values := range v {
 			for _, value := range values {
-				p.Add(key, strconv.Itoa(int(value)))
+				p.Add(key, strconv.FormatFloat(value, 'f', -1, 64))
 			}
 		}
 	case map[string]interface{}:
@@ -76,10 +76,10 @@ func parseInterfaceMapValues(data map[string]interface{}, p *Values) {
 				p.Add(key, strconv.Itoa(s2))
 			}
 		case float64:
-			p.Add(key, strconv.Itoa(int(v)))
+			p.Add(key, strconv.FormatFloat(v, 'f', -1, 64))
 		case []float64:
 			for _, s2 := range v {
-				p.Add(key, strconv.Itoa(int(s2)))
+				p.Add(key, strconv.FormatFloat(s2, 'f', -1, 64))
 			}
 		case bool:
 			p.Add(key, strconv.FormatBool(v))
@@ -91,7 +91,7 @@ func parseInterfaceMapValues(data map[string]interface{}, p *Values) {
 				case int:
 					p.Add(key, strconv.Itoa(s2))
 				case float64:
-					p.Add(key, strconv.Itoa(int(s2)))
+					p.Add(key, strconv.FormatFloat(s2, 'f', -1, 64))
 				case bool:
 					p.Add(key, strconv.FormatBool(s2))
 				}

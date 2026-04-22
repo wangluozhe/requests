@@ -23,7 +23,10 @@ func Options(rawurl string, req *url.Request) (*models.Response, error) {
 }
 
 func Head(rawurl string, req *url.Request) (*models.Response, error) {
-	req.AllowRedirects = false
+	if req == nil {
+		req = url.NewRequest()
+	}
+	req.AllowRedirects = url.Bool(false)
 	return Request(http.MethodHead, rawurl, req)
 }
 

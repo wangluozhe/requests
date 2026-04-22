@@ -22,12 +22,15 @@ type DataHook func(any) *Values
 type FilesHook func(any) *Files
 type BodyHook func(any) io.Reader
 
+// Bool 返回一个指向给定 bool 值的指针，用于显式设置 Request 中的 *bool 字段。
+// 用法: req.Verify = url.Bool(false)  // 显式关闭 TLS 验证
+func Bool(v bool) *bool {
+	return &v
+}
+
 // NewRequest 创建默认请求
 func NewRequest() *Request {
-	return &Request{
-		AllowRedirects: true,
-		Verify:         true,
-	}
+	return &Request{}
 }
 
 // Request 配置请求参数的结构体
@@ -94,14 +97,14 @@ type Request struct {
 	Body           any
 	Auth           []string
 	Timeout        time.Duration
-	AllowRedirects bool
+	AllowRedirects *bool // nil 表示使用 Session 默认值，使用 url.Bool(true/false) 显式设置
 	Proxies        string
-	Verify         bool
+	Verify         *bool // nil 表示使用 Session 默认值，使用 url.Bool(true/false) 显式设置
 	Cert           []string
 	Stream         bool
 	Ja3            string
-	RandomJA3      bool
-	ForceHTTP1     bool
+	RandomJA3      *bool // nil 表示使用 Session 默认值，使用 url.Bool(true/false) 显式设置
+	ForceHTTP1     *bool // nil 表示使用 Session 默认值，使用 url.Bool(true/false) 显式设置
 	TLSExtensions  *http.TLSExtensions
 	HTTP2Settings  *http.HTTP2Settings
 

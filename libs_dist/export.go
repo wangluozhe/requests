@@ -168,13 +168,13 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 		req.Timeout = time.Duration(timeout) * time.Second
 	}
 
-	req.AllowRedirects = requestParams.AllowRedirects
+	req.AllowRedirects = url.Bool(requestParams.AllowRedirects)
 
 	if requestParams.Proxies != "" {
 		req.Proxies = requestParams.Proxies
 	}
 
-	req.Verify = requestParams.Verify
+	req.Verify = url.Bool(requestParams.Verify)
 
 	if requestParams.Cert != nil {
 		req.Cert = requestParams.Cert
@@ -185,11 +185,11 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 	}
 
 	if requestParams.RandomJA3 {
-		req.RandomJA3 = requestParams.RandomJA3
+		req.RandomJA3 = url.Bool(requestParams.RandomJA3)
 	}
 
 	if requestParams.ForceHTTP1 {
-		req.ForceHTTP1 = requestParams.ForceHTTP1
+		req.ForceHTTP1 = url.Bool(requestParams.ForceHTTP1)
 	}
 
 	if requestParams.PseudoHeaderOrder != nil {

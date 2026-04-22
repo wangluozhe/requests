@@ -1,12 +1,12 @@
 package url
 
 import (
-	"errors"
-	http "github.com/wangluozhe/chttp"
-	"github.com/wangluozhe/chttp/cookiejar"
 	"net/url"
 	"strconv"
 	"strings"
+
+	http "github.com/wangluozhe/chttp"
+	"github.com/wangluozhe/chttp/cookiejar"
 )
 
 func NewCookies() *cookiejar.Jar {
@@ -21,13 +21,19 @@ func parseStringCookies(cookies string) []*http.Cookie {
 		if cookie == "" {
 			continue
 		}
-		keyValue := strings.SplitN(cookie, "=", 2)
-		if len(keyValue) != 2 {
-			panic(errors.New("该字符串不符合Cookies标准"))
+
+		key, value, ok := strings.Cut(cookie, "=")
+		if !ok {
+			continue
 		}
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+
 		cookieList = append(cookieList, &http.Cookie{
-			Name:  keyValue[0],
-			Value: keyValue[1],
+			Name:  key,
+			Value: strings.TrimSpace(value),
 		})
 	}
 	return cookieList

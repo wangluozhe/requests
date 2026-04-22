@@ -1,5 +1,5 @@
 # requests
-[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.24.0-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.5.1-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
+[![Gitee link address](https://img.shields.io/badge/gitee-reference-red?logo=gitee&logoColor=red&labelColor=white)](https://gitee.com/leegene/requests)[![Github link address](https://img.shields.io/badge/github-reference-blue?logo=github&logoColor=black&labelColor=white&color=black)](https://github.com/wangluozhe/requests)[![Go Version](https://img.shields.io/badge/Go%20Version-1.24.0-blue?logo=go&logoColor=white&labelColor=gray)]()[![Release Version](https://img.shields.io/badge/release-v1.5.2-blue)]()[![go documentation](https://img.shields.io/badge/go-documentation-blue)](https://pkg.go.dev/github.com/wangluozhe/requests)[![license GPL-3.0](https://img.shields.io/badge/license-GPL3.0-orange)](https://github.com/wangluozhe/requests/blob/main/LICENSE)
 
 requests支持以下新特性：
 
@@ -28,7 +28,7 @@ go get github.com/wangluozhe/requests
 ## 下载指定版
 
 ```bash
-go get github.com/wangluozhe/requests@v1.5.1
+go get github.com/wangluozhe/requests@v1.5.2
 ```
 
 
@@ -122,6 +122,14 @@ requests.SetDebug(false)
 * `string`
 * `[]byte`
 * `io.Reader`
+
+> **注意：** `AllowRedirects`、`Verify`、`RandomJA3`、`ForceHTTP1` 字段类型为 `*bool`，需要使用 `url.Bool()` 函数来设置。`nil` 表示使用 Session 默认值，`url.Bool(true)` / `url.Bool(false)` 表示显式设置。
+>
+> ```go
+> req.Verify = url.Bool(false)        // 显式关闭 TLS 证书验证
+> req.AllowRedirects = url.Bool(false) // 显式禁用重定向
+> req.ForceHTTP1 = url.Bool(true)      // 显式强制使用 HTTP/1
+> ```
 
 **使用示例 (Usage):**
 
@@ -1038,7 +1046,7 @@ fmt.Println(r.History)
 
 ```go
 req := url.NewRequest()
-req.AllowRedirects = false
+req.AllowRedirects = url.Bool(false)
 r, err := requests.Get("http://github.com", req)
 if err != nil {
     fmt.Println(err)
@@ -1056,7 +1064,7 @@ fmt.Println(r.History)
 
 ```go
 req := url.NewRequest()
-req.AllowRedirects = true
+req.AllowRedirects = url.Bool(true)
 r, err := requests.Get("http://github.com", req)
 if err != nil {
 	fmt.Println(err)
@@ -1571,7 +1579,7 @@ func main() {
 	}
 	req.Headers = headers
 	req.Ja3 = "772,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-17513-21-41,29-23-24,0"
-	req.ForceHTTP1 = true
+	req.ForceHTTP1 = url.Bool(true)
 	es := &transport.Extensions{
 		SupportedSignatureAlgorithms: []string{
 			"ecdsa_secp256r1_sha256",

@@ -17,3 +17,4 @@
 
 # edit file
 .idea/
+.gocache/

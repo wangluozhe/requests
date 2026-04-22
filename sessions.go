@@ -35,7 +35,12 @@ type Handler func(preq *models.PrepareRequest, req *url.Request) (*models.Respon
 // Middleware 定义中间件函数类型
 type Middleware func(next Handler) Handler
 
-// 默认User—Agent
+// Bool 返回指向给定 bool 值的指针，用于将 Session 的 bool 字段包装为 *bool 传给 merge_setting。
+func Bool(v bool) *bool {
+	return &v
+}
+
+// 默认User-Agent
 func default_user_agent() string {
 	return USER_AGENT
 }
@@ -139,13 +144,13 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 			return append([]string(nil), sessionSlice...)
 		}
 		return append([]string(nil), requestSlice...)
-	case bool:
-		merged_setting := session_setting.(bool)
-		requestd_setting := request_setting.(bool)
-		if requestd_setting == true {
-			merged_setting = requestd_setting
+	case *bool:
+		// *bool 类型：nil 表示"未设置"，非 nil 则使用 Request 的显式值
+		requestd_setting := request_setting.(*bool)
+		if requestd_setting != nil {
+			return requestd_setting
 		}
-		return merged_setting
+		return session_setting
 	case string:
 		merged_setting := session_setting.(string)
 		if merged_setting == "" {
@@ -165,6 +170,7 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 		if requestd_setting == nil {
 			return merged_setting
 		}
+		return requestd_setting
 	case *http.HTTP2Settings:
 		merged_setting := session_setting.(*http.HTTP2Settings)
 		if merged_setting == nil {
@@ -174,6 +180,7 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 		if requestd_setting == nil {
 			return merged_setting
 		}
+		return requestd_setting
 	case nil:
 		return session_setting
 	}
@@ -383,7 +390,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	// 设置代理
 	proxies := merge_setting(req.Proxies, s.Proxies).(string)
 	// 是否验证证书
-	verify := merge_setting(req.Verify, s.Verify).(bool)
+	verify := *merge_setting(req.Verify, Bool(s.Verify)).(*bool)
 	// 设置证书
 	cert := merge_setting(req.Cert, s.Cert).([]string)
 	// 设置超时时间
@@ -391,9 +398,9 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	// 设置ja3
 	ja3String := merge_setting(req.Ja3, s.Ja3).(string)
 	// 设置随机ja3
-	randomJA3 := merge_setting(req.RandomJA3, s.RandomJA3).(bool)
+	randomJA3 := *merge_setting(req.RandomJA3, Bool(s.RandomJA3)).(*bool)
 	// 设置强制http1
-	forceHTTP1 := merge_setting(req.ForceHTTP1, s.ForceHTTP1).(bool)
+	forceHTTP1 := *merge_setting(req.ForceHTTP1, Bool(s.ForceHTTP1)).(*bool)
 	// 设置tls
 	tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*http.TLSExtensions)
 	// 设置http2
@@ -535,8 +542,12 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		Timeout:       timeout,
 	}
 
-	// 是否自动转发
-	if req.AllowRedirects {
+		// 是否自动转发（nil 表示跟随 Session 默认行为，即允许重定向）
+		allowRedirects := true
+		if req.AllowRedirects != nil {
+			allowRedirects = *req.AllowRedirects
+		}
+		if allowRedirects {
 		if client.CheckRedirect == nil {
 			client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
 				if len(via) > s.MaxRedirects {
