@@ -102,7 +102,10 @@ func (fs *Files) addParam(name string, param map[string]string) {
 	defer fs.mutex.Unlock()
 	index := SearchStrings(fs.indexKey, name)
 	if len(fs.indexKey) == 0 || index == -1 {
-		fs.setParam(name, param)
+		fs.files = append(fs.files, map[string][]map[string]string{
+			name: {param},
+		})
+		fs.indexKey = append(fs.indexKey, name)
 	} else {
 		fs.files[index][name] = append(fs.files[index][name], param)
 	}

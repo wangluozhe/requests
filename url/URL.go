@@ -8,6 +8,9 @@ import (
 // 解析URL
 func Parse(rawurl string) (*URL, error) {
 	p, err := url.Parse(rawurl)
+	if err != nil {
+		return nil, err
+	}
 	return &URL{
 		Scheme:      p.Scheme,
 		User:        p.User,
@@ -36,8 +39,13 @@ type URL struct {
 
 // URL结构体转字符串
 func (u *URL) String() string {
-	u.mutex.RLock()
-	defer u.mutex.RUnlock()
+	if u == nil {
+		return ""
+	}
+	if u.mutex != nil {
+		u.mutex.RLock()
+		defer u.mutex.RUnlock()
+	}
 	s := u.Scheme + "://"
 	if u.User != nil {
 		s += u.User.String() + "@"
@@ -47,9 +55,12 @@ func (u *URL) String() string {
 		s += "/"
 	}
 	s += u.Path
-	u.RawParams = u.Params.Encode()
-	if u.RawParams != "" {
-		s += "?" + u.RawParams
+	rawParams := u.RawParams
+	if u.Params != nil {
+		rawParams = u.Params.Encode()
+	}
+	if rawParams != "" {
+		s += "?" + rawParams
 	}
 	if u.RawFragment != "" {
 		s += "#" + u.RawFragment

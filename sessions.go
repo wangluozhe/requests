@@ -54,10 +54,12 @@ func default_headers() *http.Header {
 
 // 合并cookies
 func merge_cookies(rawurl string, cookieJar *cookiejar.Jar, cookie *cookiejar.Jar) {
-	urls, _ := url2.Parse(utils.EncodeURI(rawurl))
-
 	// 防止因为传入 nil 对象导致程序崩溃
 	if cookieJar == nil || cookie == nil {
+		return
+	}
+	urls, err := url2.Parse(utils.EncodeURI(rawurl))
+	if err != nil || urls == nil {
 		return
 	}
 
@@ -161,6 +163,14 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 			return merged_setting
 		}
 		return requestd_setting
+	case time.Duration:
+		requestDuration := request_setting.(time.Duration)
+		if requestDuration == 0 {
+			if sessionDuration, ok := session_setting.(time.Duration); ok {
+				return sessionDuration
+			}
+		}
+		return requestDuration
 	case *http.TLSExtensions:
 		merged_setting := session_setting.(*http.TLSExtensions)
 		if merged_setting == nil {
@@ -542,12 +552,12 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		Timeout:       timeout,
 	}
 
-		// 是否自动转发（nil 表示跟随 Session 默认行为，即允许重定向）
-		allowRedirects := true
-		if req.AllowRedirects != nil {
-			allowRedirects = *req.AllowRedirects
-		}
-		if allowRedirects {
+	// 是否自动转发（nil 表示跟随 Session 默认行为，即允许重定向）
+	allowRedirects := true
+	if req.AllowRedirects != nil {
+		allowRedirects = *req.AllowRedirects
+	}
+	if allowRedirects {
 		if client.CheckRedirect == nil {
 			client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
 				if len(via) > s.MaxRedirects {

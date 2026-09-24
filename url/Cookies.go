@@ -67,8 +67,11 @@ func parseMapCookies(cookies map[string]interface{}) []*http.Cookie {
 }
 
 func ParseCookies(rawurl string, cookies interface{}) *cookiejar.Jar {
-	urls, _ := url.Parse(rawurl)
 	jar := NewCookies()
+	urls, err := url.Parse(rawurl)
+	if err != nil || urls == nil {
+		return jar
+	}
 	var cookieList []*http.Cookie
 
 	switch v := cookies.(type) {

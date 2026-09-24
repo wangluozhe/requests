@@ -133,7 +133,13 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 
 	if requestParams.Cookies != nil {
 		cookies, _ := cookiejar.New(nil)
-		u, _ := url2.Parse(requestParams.Url)
+		u, err := url2.Parse(requestParams.Url)
+		if err != nil {
+			return nil, err
+		}
+		if u == nil {
+			return nil, errors.New("invalid URL")
+		}
 		for key, value := range requestParams.Cookies {
 			cookies.SetCookies(u, []*http.Cookie{&http.Cookie{
 				Name:  key,
@@ -168,13 +174,17 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 		req.Timeout = time.Duration(timeout) * time.Second
 	}
 
-	req.AllowRedirects = url.Bool(requestParams.AllowRedirects)
+	if requestParams.AllowRedirectsSet() {
+		req.AllowRedirects = url.Bool(requestParams.AllowRedirects)
+	}
 
 	if requestParams.Proxies != "" {
 		req.Proxies = requestParams.Proxies
 	}
 
-	req.Verify = url.Bool(requestParams.Verify)
+	if requestParams.VerifySet() {
+		req.Verify = url.Bool(requestParams.Verify)
+	}
 
 	if requestParams.Cert != nil {
 		req.Cert = requestParams.Cert
@@ -184,11 +194,11 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 		req.Ja3 = requestParams.Ja3
 	}
 
-	if requestParams.RandomJA3 {
+	if requestParams.RandomJA3Set() {
 		req.RandomJA3 = url.Bool(requestParams.RandomJA3)
 	}
 
-	if requestParams.ForceHTTP1 {
+	if requestParams.ForceHTTP1Set() {
 		req.ForceHTTP1 = url.Bool(requestParams.ForceHTTP1)
 	}
 

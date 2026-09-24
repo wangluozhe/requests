@@ -207,13 +207,14 @@ func (pr *PrepareRequest) Prepare_auth(auth []string, rawurl string) error {
 		if err != nil {
 			return err
 		}
-		user := urls.User.String()
-		if user != "" {
-			auth = append(auth, user)
-		}
-		pass, _ := urls.User.Password()
-		if pass != "" {
-			auth = append(auth, pass)
+		if urls.User != nil {
+			user := urls.User.Username()
+			if user != "" {
+				auth = append(auth, user)
+			}
+			if pass, hasPassword := urls.User.Password(); hasPassword {
+				auth = append(auth, pass)
+			}
 		}
 	}
 	if auth != nil && len(auth) == 2 {
