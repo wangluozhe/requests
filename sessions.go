@@ -494,6 +494,9 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	verify := *merge_setting(req.Verify, Bool(s.Verify)).(*bool)
 	// 设置证书
 	cert := merge_setting(req.Cert, s.Cert).([]string)
+	if len(cert) > 0 && len(cert) < 2 {
+		return nil, fmt.Errorf("certificate configuration requires certificate and key paths")
+	}
 	// 设置超时时间
 	timeout := merge_setting(req.Timeout, s.Timeout).(time.Duration)
 	// 设置ja3
@@ -573,7 +576,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			tr.TLSClientConfig.InsecureSkipVerify = !verify
 		}
 
-		if cert != nil {
+		if len(cert) >= 2 {
 			var cert_byte []byte
 			certs, err := utls.LoadX509KeyPair(cert[0], cert[1])
 			if err != nil {

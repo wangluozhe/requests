@@ -95,6 +95,19 @@ func TestSessionRejectsInvalidURLWithoutPanic(t *testing.T) {
 	}
 }
 
+func TestSessionRejectsIncompleteCertificateConfig(t *testing.T) {
+	request := url.NewRequest()
+	request.Cert = []string{"certificate.pem"}
+
+	_, err := NewSession().Get("https://127.0.0.1:1", request)
+	if err == nil {
+		t.Fatal("incomplete certificate configuration unexpectedly succeeded")
+	}
+	if !strings.Contains(err.Error(), "certificate and key paths") {
+		t.Fatalf("incomplete certificate configuration returned unexpected error: %v", err)
+	}
+}
+
 func TestSessionTimeoutIsAppliedToRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond)
