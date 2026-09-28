@@ -84,35 +84,25 @@ func merge_cookies(rawurl string, cookieJar *cookiejar.Jar, cookie *cookiejar.Ja
 	}
 }
 
-func cloneParams(params *url.Params) *url.Params {
-	if params == nil {
-		return nil
-	}
-	cloned := url.NewParams()
-	for key, values := range params.Values() {
-		for _, value := range values {
-			cloned.Add(key, value)
-		}
-	}
-	return cloned
-}
-
 // 合并参数
 func merge_setting(request_setting, session_setting interface{}) interface{} {
 	switch (request_setting).(type) {
 	case *url.Params:
 		sessionParams := session_setting.(*url.Params)
-		if sessionParams == nil {
-			return request_setting
-		}
 		requestParams := request_setting.(*url.Params)
-		if requestParams == nil {
-			return cloneParams(sessionParams)
+		if sessionParams == nil {
+			return requestParams.Clone()
 		}
-		merged := cloneParams(sessionParams)
-		for key, values := range requestParams.Values() {
+		if requestParams == nil {
+			return sessionParams.Clone()
+		}
+		merged := sessionParams.Clone()
+		// 在同一快照上读取键和值，保留请求参数的顺序。
+		snapshot := requestParams.Clone()
+		values := snapshot.Values()
+		for _, key := range snapshot.Keys() {
 			merged.Del(key)
-			for _, value := range values {
+			for _, value := range values[key] {
 				merged.Add(key, value)
 			}
 		}

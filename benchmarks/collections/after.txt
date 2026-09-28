@@ -1,0 +1,133 @@
+﻿# after: working tree; go version go1.26.2 windows/amd64; cpu=4; benchtime=200ms; 6 alternating rounds
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests/url
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkCollectionsParams/Build16-4         	   70707	      3162 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsParams/SetExisting-4     	 4541350	        52.26 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsParams/Get-4             	14273310	        18.49 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsParams/Snapshot-4        	  185077	      1478 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsParams/Encode-4          	  100417	      2638 ns/op	    2272 B/op	      39 allocs/op
+BenchmarkCollectionsParams/ParallelSetGet-4  	 1530372	       155.1 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Build16-4         	   66302	      4499 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsValues/SetExisting-4     	 5071754	        49.84 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Get-4             	13869063	        16.72 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsValues/Snapshot-4        	  159106	      1919 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsValues/Encode-4          	   21306	     11557 ns/op	    3648 B/op	     149 allocs/op
+BenchmarkCollectionsValues/ParallelSetGet-4  	 1000000	       201.2 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsFiles/Build16-4          	   19719	     11651 ns/op	   14280 B/op	     109 allocs/op
+BenchmarkCollectionsFiles/Get-4              	  816354	       289.3 ns/op	     336 B/op	       2 allocs/op
+BenchmarkCollectionsFiles/EncodeFields-4     	    3984	     53524 ns/op	   46109 B/op	     580 allocs/op
+BenchmarkCollectionsFiles/EncodeFile64KiB-4  	    2244	    168210 ns/op	 389.61 MB/s	  172151 B/op	      55 allocs/op
+BenchmarkCollectionsFiles/ParallelSetGet-4   	  229092	      1175 ns/op	     680 B/op	       5 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests/url
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkCollectionsParams/Build16-4         	   43752	      6156 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsParams/SetExisting-4     	 3492010	        63.98 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsParams/Get-4             	10905471	        19.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsParams/Snapshot-4        	  186724	      1314 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsParams/Encode-4          	  129236	      2017 ns/op	    2272 B/op	      39 allocs/op
+BenchmarkCollectionsParams/ParallelSetGet-4  	 2107797	       117.0 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Build16-4         	   79471	      3238 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsValues/SetExisting-4     	 5006790	        49.30 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Get-4             	14038453	        16.45 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsValues/Snapshot-4        	  230606	      1057 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsValues/Encode-4          	   26724	     12383 ns/op	    3648 B/op	     149 allocs/op
+BenchmarkCollectionsValues/ParallelSetGet-4  	 1000000	       229.3 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsFiles/Build16-4          	   19348	     12303 ns/op	   14280 B/op	     109 allocs/op
+BenchmarkCollectionsFiles/Get-4              	  706027	       332.1 ns/op	     336 B/op	       2 allocs/op
+BenchmarkCollectionsFiles/EncodeFields-4     	    4100	     59949 ns/op	   46107 B/op	     580 allocs/op
+BenchmarkCollectionsFiles/EncodeFile64KiB-4  	    1954	    155538 ns/op	 421.35 MB/s	  172150 B/op	      55 allocs/op
+BenchmarkCollectionsFiles/ParallelSetGet-4   	  246459	       932.6 ns/op	     680 B/op	       5 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests/url
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkCollectionsParams/Build16-4         	   69039	      3200 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsParams/SetExisting-4     	 4211884	        52.99 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsParams/Get-4             	12884452	        18.54 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsParams/Snapshot-4        	  163724	      1319 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsParams/Encode-4          	  113692	      2280 ns/op	    2272 B/op	      39 allocs/op
+BenchmarkCollectionsParams/ParallelSetGet-4  	 1445541	       179.3 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Build16-4         	   63825	      4271 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsValues/SetExisting-4     	 4236718	        63.16 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Get-4             	12758326	        23.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsValues/Snapshot-4        	  117375	      2038 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsValues/Encode-4          	   17504	     13168 ns/op	    3648 B/op	     149 allocs/op
+BenchmarkCollectionsValues/ParallelSetGet-4  	 1000000	       221.3 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsFiles/Build16-4          	   20244	     13131 ns/op	   14280 B/op	     109 allocs/op
+BenchmarkCollectionsFiles/Get-4              	  770366	       329.6 ns/op	     336 B/op	       2 allocs/op
+BenchmarkCollectionsFiles/EncodeFields-4     	    4220	     59049 ns/op	   46108 B/op	     580 allocs/op
+BenchmarkCollectionsFiles/EncodeFile64KiB-4  	    1682	    126300 ns/op	 518.89 MB/s	  172147 B/op	      55 allocs/op
+BenchmarkCollectionsFiles/ParallelSetGet-4   	  262999	       930.7 ns/op	     680 B/op	       5 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests/url
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkCollectionsParams/Build16-4         	   66176	      4182 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsParams/SetExisting-4     	 3386462	        73.00 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsParams/Get-4             	10522669	        22.97 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsParams/Snapshot-4        	  124324	      2382 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsParams/Encode-4          	   83475	      3903 ns/op	    2272 B/op	      39 allocs/op
+BenchmarkCollectionsParams/ParallelSetGet-4  	 1491111	       139.6 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Build16-4         	   67664	      3146 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsValues/SetExisting-4     	 4608914	        54.46 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Get-4             	13152558	        17.73 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsValues/Snapshot-4        	  172497	      1372 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsValues/Encode-4          	   18589	     14024 ns/op	    3648 B/op	     149 allocs/op
+BenchmarkCollectionsValues/ParallelSetGet-4  	 1000000	       224.4 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsFiles/Build16-4          	   19398	     12485 ns/op	   14280 B/op	     109 allocs/op
+BenchmarkCollectionsFiles/Get-4              	 1000000	       320.1 ns/op	     336 B/op	       2 allocs/op
+BenchmarkCollectionsFiles/EncodeFields-4     	    3546	     94334 ns/op	   46108 B/op	     580 allocs/op
+BenchmarkCollectionsFiles/EncodeFile64KiB-4  	     684	    314920 ns/op	 208.10 MB/s	  172162 B/op	      55 allocs/op
+BenchmarkCollectionsFiles/ParallelSetGet-4   	  197593	      1940 ns/op	     680 B/op	       5 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests/url
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkCollectionsParams/Build16-4         	   83125	      3413 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsParams/SetExisting-4     	 4723423	        58.70 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsParams/Get-4             	14079301	        16.95 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsParams/Snapshot-4        	  209892	      1119 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsParams/Encode-4          	  105396	      1924 ns/op	    2272 B/op	      39 allocs/op
+BenchmarkCollectionsParams/ParallelSetGet-4  	 1750795	       124.0 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Build16-4         	   77559	      3564 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsValues/SetExisting-4     	 4723386	        73.77 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Get-4             	12200295	        21.17 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsValues/Snapshot-4        	  172833	      2144 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsValues/Encode-4          	   18153	     13059 ns/op	    3648 B/op	     149 allocs/op
+BenchmarkCollectionsValues/ParallelSetGet-4  	 1000000	       217.0 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsFiles/Build16-4          	   17053	     15443 ns/op	   14280 B/op	     109 allocs/op
+BenchmarkCollectionsFiles/Get-4              	  810181	       353.6 ns/op	     336 B/op	       2 allocs/op
+BenchmarkCollectionsFiles/EncodeFields-4     	    4023	     55012 ns/op	   46107 B/op	     580 allocs/op
+BenchmarkCollectionsFiles/EncodeFile64KiB-4  	    1734	    124176 ns/op	 527.77 MB/s	  172150 B/op	      55 allocs/op
+BenchmarkCollectionsFiles/ParallelSetGet-4   	  242377	       949.0 ns/op	     680 B/op	       5 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests/url
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkCollectionsParams/Build16-4         	   74462	      3406 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsParams/SetExisting-4     	 4802160	        53.55 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsParams/Get-4             	13135857	        25.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsParams/Snapshot-4        	  208532	      1081 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsParams/Encode-4          	  139008	      1802 ns/op	    2272 B/op	      39 allocs/op
+BenchmarkCollectionsParams/ParallelSetGet-4  	 2017130	       120.6 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Build16-4         	   79544	      3163 ns/op	    3912 B/op	      45 allocs/op
+BenchmarkCollectionsValues/SetExisting-4     	 4343175	        59.26 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsValues/Get-4             	13214620	        25.94 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCollectionsValues/Snapshot-4        	  166200	      1400 ns/op	    2008 B/op	      20 allocs/op
+BenchmarkCollectionsValues/Encode-4          	   17193	     13421 ns/op	    3648 B/op	     149 allocs/op
+BenchmarkCollectionsValues/ParallelSetGet-4  	 1038112	       227.7 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCollectionsFiles/Build16-4          	   17775	     13880 ns/op	   14280 B/op	     109 allocs/op
+BenchmarkCollectionsFiles/Get-4              	  781107	       282.9 ns/op	     336 B/op	       2 allocs/op
+BenchmarkCollectionsFiles/EncodeFields-4     	    4200	     63609 ns/op	   46109 B/op	     580 allocs/op
+BenchmarkCollectionsFiles/EncodeFile64KiB-4  	    1695	    142133 ns/op	 461.09 MB/s	  172151 B/op	      55 allocs/op
+BenchmarkCollectionsFiles/ParallelSetGet-4   	  245056	       964.6 ns/op	     680 B/op	       5 allocs/op
+PASS

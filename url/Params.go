@@ -106,52 +106,60 @@ func ParseParams(params interface{}) *Params {
 
 // 初始化Params结构体
 func NewParams() *Params {
-	return &Params{mutex: &sync.RWMutex{}}
+	return &Params{values: make(map[string][]string)}
 }
 
-// Params结构体
+// Params 按插入顺序保存参数，零值可用，支持并发方法调用。使用后不能按值复制，请使用 Clone。
 type Params struct {
-	values   sync.Map
+	values   map[string][]string
 	indexKey []string
-	mutex    *sync.RWMutex
+	mutex    sync.RWMutex
 }
 
 // 设置Params参数
 func (p *Params) Set(key, value string) {
-	p.values.Store(key, []string{value})
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if SearchStrings(p.indexKey, key) == -1 {
+	p.initLocked()
+	if _, exists := p.values[key]; !exists {
 		p.indexKey = append(p.indexKey, key)
 	}
+	p.values[key] = []string{value}
 }
 
 // 获取Params参数值
 func (p *Params) Get(key string) string {
-	if value, ok := p.values.Load(key); ok {
-		return value.([]string)[0]
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	if values := p.values[key]; len(values) > 0 {
+		return values[0]
 	}
 	return ""
 }
 
 // 添加Params参数
 func (p *Params) Add(key, value string) {
-	if val, ok := p.values.Load(key); ok {
-		p.values.Store(key, append(val.([]string), value))
-	} else {
-		p.Set(key, value)
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	p.initLocked()
+	if _, exists := p.values[key]; !exists {
+		p.indexKey = append(p.indexKey, key)
 	}
+	p.values[key] = append(p.values[key], value)
 }
 
 // 删除Params参数
 func (p *Params) Del(key string) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if _, ok := p.values.Load(key); ok {
-		p.values.Delete(key)
-		if index := SearchStrings(p.indexKey, key); index != -1 {
-			p.indexKey = append(p.indexKey[:index], p.indexKey[index+1:]...)
-		}
+	if _, exists := p.values[key]; !exists {
+		return
+	}
+	delete(p.values, key)
+	if index := SearchStrings(p.indexKey, key); index != -1 {
+		copy(p.indexKey[index:], p.indexKey[index+1:])
+		p.indexKey[len(p.indexKey)-1] = ""
+		p.indexKey = p.indexKey[:len(p.indexKey)-1]
 	}
 }
 
@@ -164,27 +172,51 @@ func (p *Params) Keys() []string {
 
 // Params结构体转字符串
 func (p *Params) Encode() string {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
 	var text []string
 	for _, key := range p.indexKey {
-		if item, ok := p.values.Load(key); ok {
-			for _, value := range item.([]string) {
-				if value == "" {
-					text = append(text, key)
-				} else {
-					text = append(text, key+"="+value)
-				}
+		for _, value := range p.values[key] {
+			if value == "" {
+				text = append(text, key)
+			} else {
+				text = append(text, key+"="+value)
 			}
 		}
 	}
 	return strings.Join(text, "&")
 }
 
-// Params结构体返回map[string][]string
+// Values 返回独立的 map 和值切片，修改返回值不会影响 Params。
 func (p *Params) Values() map[string][]string {
-	values := make(map[string][]string)
-	p.values.Range(func(k, v interface{}) bool {
-		values[k.(string)] = v.([]string)
-		return true
-	})
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	values := make(map[string][]string, len(p.values))
+	for key, item := range p.values {
+		values[key] = append([]string(nil), item...)
+	}
 	return values
+}
+
+// Clone 返回 Params 的深拷贝。
+func (p *Params) Clone() *Params {
+	if p == nil {
+		return nil
+	}
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	clone := &Params{
+		values:   make(map[string][]string, len(p.values)),
+		indexKey: append([]string(nil), p.indexKey...),
+	}
+	for key, values := range p.values {
+		clone.values[key] = append([]string(nil), values...)
+	}
+	return clone
+}
+
+func (p *Params) initLocked() {
+	if p.values == nil {
+		p.values = make(map[string][]string)
+	}
 }

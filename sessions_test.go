@@ -8,7 +8,66 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/wangluozhe/requests/url"
 )
+
+func TestMergeSettingParamsOrderAndIsolation(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		request *url.Params
+		session *url.Params
+		want    string
+	}{
+		{name: "both_nil"},
+		{name: "request_only", request: url.ParseParams("a=new&a=two&z=4"), want: "a=new&a=two&z=4"},
+		{name: "session_only", session: url.ParseParams("b=1&a=old&c=3"), want: "b=1&a=old&c=3"},
+		{
+			name:    "override_and_append",
+			request: url.ParseParams("a=new&a=two&z=4"),
+			session: url.ParseParams("b=1&a=old&c=3"),
+			want:    "b=1&c=3&a=new&a=two&z=4",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			merged := merge_setting(test.request, test.session).(*url.Params)
+			if test.request == nil && test.session == nil {
+				if merged != nil {
+					t.Fatal("merging nil Params should return nil")
+				}
+				return
+			}
+			if merged == nil || merged == test.request || merged == test.session {
+				t.Fatal("merged Params must be an independent collection")
+			}
+			if got := merged.Encode(); got != test.want {
+				t.Fatalf("merged Params = %q, want %q", got, test.want)
+			}
+			originals := make(map[*url.Params]string)
+			for _, source := range []*url.Params{test.request, test.session} {
+				if source != nil {
+					originals[source] = source.Encode()
+				}
+			}
+			merged.Add("a", "merged-only")
+			merged.Del("b")
+			merged.Set("z", "merged-only")
+			for source, want := range originals {
+				if got := source.Encode(); got != want {
+					t.Fatalf("source changed through merged Params: %q, want %q", got, want)
+				}
+			}
+			want := merged.Encode()
+			for source := range originals {
+				source.Set("a", "source-only")
+				source.Add("z", "source-only")
+			}
+			if got := merged.Encode(); got != want {
+				t.Fatalf("merged Params changed through source: %q, want %q", got, want)
+			}
+		})
+	}
+}
 
 func TestMergeSettingInheritsSessionTimeout(t *testing.T) {
 	const sessionTimeout = 250 * time.Millisecond

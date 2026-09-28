@@ -163,8 +163,14 @@ func prepareFilesBody(files *url.Files, data *url.Values) (string, string, error
 	var err error
 
 	if data != nil {
-		for _, key := range data.Keys() {
-			files.AddField(key, data.Get(key))
+		// 在独立副本中合并表单，避免复用 Files 时累积字段。
+		files = files.Clone()
+		snapshot := data.Clone()
+		values := snapshot.Values()
+		for _, key := range snapshot.Keys() {
+			for _, value := range values[key] {
+				files.AddField(key, value)
+			}
 		}
 	}
 	byteBuffer, contentType, err = files.Encode()

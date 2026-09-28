@@ -13,16 +13,14 @@ import (
 
 // 初始化Files结构体
 func NewFiles() *Files {
-	return &Files{
-		mutex: &sync.RWMutex{},
-	}
+	return &Files{files: make(map[string][]map[string]string)}
 }
 
-// Files结构体
+// Files 按插入顺序保存上传条目，零值可用，支持并发方法调用。使用后不能按值复制，请使用 Clone。
 type Files struct {
-	files    []map[string][]map[string]string
+	files    map[string][]map[string]string
 	indexKey []string
-	mutex    *sync.RWMutex
+	mutex    sync.RWMutex
 }
 
 // Files设置Field参数
@@ -50,27 +48,19 @@ func (fs *Files) SetFile(name, fileName, filePath, contentType string) {
 func (fs *Files) setParam(name string, param map[string]string) {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
-	f := map[string][]map[string]string{
-		name: {param},
-	}
-	index := SearchStrings(fs.indexKey, name)
-	if len(fs.indexKey) == 0 || index == -1 {
-		fs.files = append(fs.files, f)
+	fs.initLocked()
+	if _, exists := fs.files[name]; !exists {
 		fs.indexKey = append(fs.indexKey, name)
-	} else {
-		fs.files[index] = f
 	}
+	fs.files[name] = []map[string]string{param}
 }
 
-// 获取Files参数值
+// Get 返回第一个上传条目的独立副本；不存在时返回 nil。
 func (fs *Files) Get(name string) map[string]string {
 	fs.mutex.RLock()
 	defer fs.mutex.RUnlock()
-	if len(fs.files) != 0 {
-		index := SearchStrings(fs.indexKey, name)
-		if index != -1 {
-			return fs.files[index][name][0]
-		}
+	if items := fs.files[name]; len(items) > 0 {
+		return cloneFileParam(items[0])
 	}
 	return nil
 }
@@ -100,42 +90,45 @@ func (fs *Files) AddFile(name, fileName, filePath, contentType string) {
 func (fs *Files) addParam(name string, param map[string]string) {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
-	index := SearchStrings(fs.indexKey, name)
-	if len(fs.indexKey) == 0 || index == -1 {
-		fs.files = append(fs.files, map[string][]map[string]string{
-			name: {param},
-		})
+	fs.initLocked()
+	if _, exists := fs.files[name]; !exists {
 		fs.indexKey = append(fs.indexKey, name)
-	} else {
-		fs.files[index][name] = append(fs.files[index][name], param)
 	}
+	fs.files[name] = append(fs.files[name], param)
 }
 
 // 删除Files参数
 func (fs *Files) Del(name string) bool {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
-	index := SearchStrings(fs.indexKey, name)
-	if len(fs.indexKey) == 0 || index == -1 {
+	if _, exists := fs.files[name]; !exists {
 		return false
 	}
-	fs.files = append(fs.files[:index], fs.files[index+1:]...)
-	fs.indexKey = append(fs.indexKey[:index], fs.indexKey[index+1:]...)
+	delete(fs.files, name)
+	index := SearchStrings(fs.indexKey, name)
+	if index != -1 {
+		copy(fs.indexKey[index:], fs.indexKey[index+1:])
+		fs.indexKey[len(fs.indexKey)-1] = ""
+		fs.indexKey = fs.indexKey[:len(fs.indexKey)-1]
+	}
 	return true
 }
 
 // Files结构体转FormFile
 func (fs *Files) Encode() (*bytes.Buffer, string, error) {
-	fs.mutex.RLock()
-	defer fs.mutex.RUnlock()
+	// 只在创建元数据快照时持锁，文件读取不阻塞其他方法。
+	snapshot := fs.Clone()
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	for index, name := range fs.indexKey {
-		itemList := fs.files[index][name]
+	for _, name := range snapshot.indexKey {
+		itemList := snapshot.files[name]
 		for _, item := range itemList {
 			if item["type"] == "field" {
-				writer.WriteField(name, item["value"])
+				if err := writer.WriteField(name, item["value"]); err != nil {
+					return nil, "", err
+				}
 			} else {
 				if err := fs.writeFile(writer, name, item); err != nil {
 					return nil, "", err
@@ -147,6 +140,48 @@ func (fs *Files) Encode() (*bytes.Buffer, string, error) {
 		return nil, "", err
 	}
 	return body, writer.FormDataContentType(), nil
+}
+
+// Clone 深拷贝条目和顺序信息；磁盘文件仍在 Encode 时按路径读取。
+func (fs *Files) Clone() *Files {
+	if fs == nil {
+		return nil
+	}
+	fs.mutex.RLock()
+	defer fs.mutex.RUnlock()
+	return fs.cloneLocked()
+}
+
+func (fs *Files) cloneLocked() *Files {
+	clone := &Files{
+		indexKey: append([]string(nil), fs.indexKey...),
+		files:    make(map[string][]map[string]string, len(fs.files)),
+	}
+	for name, items := range fs.files {
+		cloneItems := make([]map[string]string, len(items))
+		for index, item := range items {
+			cloneItems[index] = cloneFileParam(item)
+		}
+		clone.files[name] = cloneItems
+	}
+	return clone
+}
+
+func (fs *Files) initLocked() {
+	if fs.files == nil {
+		fs.files = make(map[string][]map[string]string)
+	}
+}
+
+func cloneFileParam(param map[string]string) map[string]string {
+	if param == nil {
+		return nil
+	}
+	clone := make(map[string]string, len(param))
+	for key, value := range param {
+		clone[key] = value
+	}
+	return clone
 }
 
 // 写入文件

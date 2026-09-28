@@ -1,10 +1,11 @@
 package url
 
 import (
-	"github.com/wangluozhe/requests/utils"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/wangluozhe/requests/utils"
 )
 
 // 解析Values字符串为Values结构体
@@ -102,63 +103,66 @@ func parseInterfaceMapValues(data map[string]interface{}, p *Values) {
 
 // 初始化Values结构体
 func NewValues() *Values {
-	return &Values{mutex: &sync.RWMutex{}}
+	return &Values{values: make(map[string][]string)}
 }
 
 // 初始化Data结构体
 func NewData() *Values {
-	return &Values{mutex: &sync.RWMutex{}}
+	return NewValues()
 }
 
-// Values结构体
+// Values 按插入顺序保存表单值，零值可用，支持并发方法调用。使用后不能按值复制，请使用 Clone。
 type Values struct {
-	values   sync.Map
+	values   map[string][]string
 	indexKey []string
-	mutex    *sync.RWMutex
+	mutex    sync.RWMutex
 }
 
 // 设置Values参数
 func (v *Values) Set(key, value string) {
-	v.values.Store(key, []string{value})
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
-	index := SearchStrings(v.indexKey, key)
-	if index == -1 {
+	v.initLocked()
+	if _, exists := v.values[key]; !exists {
 		v.indexKey = append(v.indexKey, key)
 	}
+	v.values[key] = []string{value}
 }
 
 // 获取Values参数值
 func (v *Values) Get(key string) string {
-	value, ok := v.values.Load(key)
-	if ok {
-		return value.([]string)[0]
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
+	if values := v.values[key]; len(values) > 0 {
+		return values[0]
 	}
 	return ""
 }
 
 // 添加Values参数
 func (v *Values) Add(key, value string) {
-	val, ok := v.values.Load(key)
-	if !ok {
-		v.Set(key, value)
-	} else {
-		v.values.Store(key, append(val.([]string), value))
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
+	v.initLocked()
+	if _, exists := v.values[key]; !exists {
+		v.indexKey = append(v.indexKey, key)
 	}
+	v.values[key] = append(v.values[key], value)
 }
 
 // 删除Values参数
 func (v *Values) Del(key string) {
-	_, ok := v.values.Load(key)
-	if !ok {
-		return
-	}
-	v.values.Delete(key)
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
+	if _, exists := v.values[key]; !exists {
+		return
+	}
+	delete(v.values, key)
 	index := SearchStrings(v.indexKey, key)
 	if index != -1 {
-		v.indexKey = append(v.indexKey[:index], v.indexKey[index+1:]...)
+		copy(v.indexKey[index:], v.indexKey[index+1:])
+		v.indexKey[len(v.indexKey)-1] = ""
+		v.indexKey = v.indexKey[:len(v.indexKey)-1]
 	}
 }
 
@@ -171,22 +175,47 @@ func (v *Values) Keys() []string {
 
 // Values结构体转字符串
 func (v *Values) Encode() string {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	text := []string{}
 	for _, key := range v.indexKey {
-		item, _ := v.values.Load(key)
-		for _, value := range item.([]string) {
+		for _, value := range v.values[key] {
 			text = append(text, utils.EncodeURIComponent(key)+"="+utils.EncodeURIComponent(value))
 		}
 	}
 	return strings.Join(text, "&")
 }
 
-// Values结构体返回map[string][]string
+// Values 返回独立的 map 和值切片，修改返回值不会影响原表单。
 func (v *Values) Values() map[string][]string {
-	values := make(map[string][]string)
-	v.values.Range(func(k, v interface{}) bool {
-		values[k.(string)] = v.([]string)
-		return true
-	})
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
+	values := make(map[string][]string, len(v.values))
+	for key, item := range v.values {
+		values[key] = append([]string(nil), item...)
+	}
 	return values
+}
+
+// Clone 返回 Values 的深拷贝。
+func (v *Values) Clone() *Values {
+	if v == nil {
+		return nil
+	}
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
+	clone := &Values{
+		values:   make(map[string][]string, len(v.values)),
+		indexKey: append([]string(nil), v.indexKey...),
+	}
+	for key, values := range v.values {
+		clone.values[key] = append([]string(nil), values...)
+	}
+	return clone
+}
+
+func (v *Values) initLocked() {
+	if v.values == nil {
+		v.values = make(map[string][]string)
+	}
 }
