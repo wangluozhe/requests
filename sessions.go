@@ -501,6 +501,12 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	timeout := merge_setting(req.Timeout, s.Timeout).(time.Duration)
 	// 设置ja3
 	ja3String := merge_setting(req.Ja3, s.Ja3).(string)
+	if ja3String != "" {
+		ja3Parts := strings.Split(ja3String, ",")
+		if len(ja3Parts) != 5 {
+			return nil, fmt.Errorf("invalid JA3 format: expected 5 comma-separated fields")
+		}
+	}
 	// 设置随机ja3
 	randomJA3 := *merge_setting(req.RandomJA3, Bool(s.RandomJA3)).(*bool)
 	// 设置强制http1

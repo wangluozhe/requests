@@ -108,6 +108,19 @@ func TestSessionRejectsIncompleteCertificateConfig(t *testing.T) {
 	}
 }
 
+func TestSessionRejectsInvalidJA3Format(t *testing.T) {
+	request := url.NewRequest()
+	request.Ja3 = "771,4865-4866"
+
+	_, err := NewSession().Get("https://127.0.0.1:1", request)
+	if err == nil {
+		t.Fatal("invalid JA3 configuration unexpectedly succeeded")
+	}
+	if !strings.Contains(err.Error(), "invalid JA3 format") {
+		t.Fatalf("invalid JA3 configuration returned unexpected error: %v", err)
+	}
+}
+
 func TestSessionTimeoutIsAppliedToRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond)
