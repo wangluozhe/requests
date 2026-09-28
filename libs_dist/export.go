@@ -29,7 +29,6 @@ import (
 
 var unsafePointers = make(map[string]*C.char)
 var unsafePointersLock = sync.Mutex{}
-var errorFormat = "{\"err\": \"%v\"}"
 
 var sessionsPool = sync.Map{}
 
@@ -37,46 +36,254 @@ var sessionsPool = sync.Map{}
 type StreamEntry struct {
 	Response *models.Response
 	Body     io.ReadCloser
+	Session  *sessionEntry
+	mu       sync.Mutex
+	readMu   sync.Mutex
+	closed   bool
 }
 
 var streamPool = sync.Map{}
 
-func GetSession(id string) *requests.Session {
-	cookies, _ := cookiejar.New(nil)
-	if actual, ok := sessionsPool.Load(id); ok {
-		s := actual.(*requests.Session)
-		s.Cookies = cookies
-		return s
+// sessionEntry 管理 C API 对 Session 的所有权和活动调用。
+// freeSession 会先标记关闭，再等待引用归零，避免请求使用已关闭的 Session。
+type sessionEntry struct {
+	session *requests.Session
+	mu      sync.Mutex
+	refs    int
+	closing bool
+	done    chan struct{}
+	closed  chan struct{}
+}
+
+func newSessionEntry() *sessionEntry {
+	return &sessionEntry{
+		session: requests.NewSession(),
+		done:    make(chan struct{}),
+		closed:  make(chan struct{}),
 	}
-	s := requests.NewSession()
-	s.Cookies = cookies
-	actual, _ := sessionsPool.LoadOrStore(id, s)
-	return actual.(*requests.Session)
+}
+
+// sessionForID 返回可复用的 Session。Cookie Jar 只在首次创建时初始化。
+func sessionForID(id string) *sessionEntry {
+	for {
+		if actual, ok := sessionsPool.Load(id); ok {
+			entry := actual.(*sessionEntry)
+			entry.mu.Lock()
+			closing := entry.closing
+			closed := entry.closed
+			entry.mu.Unlock()
+			if !closing {
+				return entry
+			}
+			<-closed
+			continue
+		}
+
+		candidate := newSessionEntry()
+		actual, loaded := sessionsPool.LoadOrStore(id, candidate)
+		if !loaded {
+			return candidate
+		}
+		// 并发创建失败的候选 Session 不再归池管理，立即释放其 Transport。
+		_ = candidate.session.Close()
+		entry := actual.(*sessionEntry)
+		entry.mu.Lock()
+		closing := entry.closing
+		closed := entry.closed
+		entry.mu.Unlock()
+		if !closing {
+			return entry
+		}
+		<-closed
+	}
+}
+
+func acquireSession(id string) *sessionEntry {
+	for {
+		entry := sessionForID(id)
+		entry.mu.Lock()
+		if !entry.closing {
+			entry.refs++
+			entry.mu.Unlock()
+			return entry
+		}
+		closed := entry.closed
+		entry.mu.Unlock()
+		<-closed
+	}
+}
+
+func releaseSession(entry *sessionEntry) {
+	if entry == nil {
+		return
+	}
+	entry.mu.Lock()
+	entry.refs--
+	if entry.closing && entry.refs == 0 {
+		close(entry.done)
+	}
+	entry.mu.Unlock()
+}
+
+func (entry *StreamEntry) close() {
+	if entry == nil {
+		return
+	}
+	entry.mu.Lock()
+	if entry.closed {
+		entry.mu.Unlock()
+		return
+	}
+	entry.closed = true
+	body := entry.Body
+	entry.mu.Unlock()
+	if body != nil {
+		_ = body.Close()
+	}
+}
+
+func (entry *StreamEntry) read(buf []byte) (int, error) {
+	entry.readMu.Lock()
+	defer entry.readMu.Unlock()
+	entry.mu.Lock()
+	if entry.closed || entry.Body == nil {
+		entry.mu.Unlock()
+		return 0, errors.New("stream is closed")
+	}
+	body := entry.Body
+	entry.mu.Unlock()
+	// 不持有状态锁执行 Read，允许 close 同时关闭底层连接以唤醒阻塞读取。
+	return body.Read(buf)
+}
+
+func closeStreamsForSession(session *sessionEntry) {
+	streamPool.Range(func(key, value interface{}) bool {
+		entry, ok := value.(*StreamEntry)
+		if !ok || entry.Session != session {
+			return true
+		}
+		streamID, ok := key.(string)
+		if !ok {
+			return true
+		}
+		if actual, deleted := streamPool.LoadAndDelete(streamID); deleted {
+			if streamEntry, ok := actual.(*StreamEntry); ok {
+				streamEntry.close()
+			}
+		}
+		freeManagedCString(streamID)
+		freeManagedCString(streamID + "_read")
+		return true
+	})
+}
+
+func closeSession(id string) error {
+	actual, ok := sessionsPool.Load(id)
+	if !ok {
+		return nil
+	}
+	entry := actual.(*sessionEntry)
+	entry.mu.Lock()
+	if entry.closing {
+		closed := entry.closed
+		entry.mu.Unlock()
+		<-closed
+		return nil
+	}
+	entry.closing = true
+	if entry.refs == 0 {
+		close(entry.done)
+	}
+	done := entry.done
+	entry.mu.Unlock()
+
+	<-done
+	closeStreamsForSession(entry)
+	err := entry.session.Close()
+	sessionsPool.CompareAndDelete(id, entry)
+	close(entry.closed)
+	return err
+}
+
+func GetSession(id string) *requests.Session {
+	return sessionForID(id).session
+}
+
+// managedCString 统一登记返回给 C 调用方的字符串，调用 freeMemory 释放。
+func managedCString(id, value string) *C.char {
+	ptr := C.CString(value)
+	unsafePointersLock.Lock()
+	old := unsafePointers[id]
+	unsafePointers[id] = ptr
+	unsafePointersLock.Unlock()
+	if old != nil {
+		C.free(unsafe.Pointer(old))
+	}
+	return ptr
+}
+
+func freeManagedCString(id string) {
+	unsafePointersLock.Lock()
+	ptr, ok := unsafePointers[id]
+	if ok {
+		delete(unsafePointers, id)
+	}
+	unsafePointersLock.Unlock()
+	if ok && ptr != nil {
+		C.free(unsafe.Pointer(ptr))
+	}
+}
+
+func errorCString(message string) *C.char {
+	id := uuid.New().String()
+	payload, err := json.Marshal(map[string]string{"id": id, "err": message})
+	if err != nil {
+		payload = []byte("{\"id\":\"" + id + "\",\"err\":\"C API error\"}")
+	}
+	return managedCString(id, string(payload))
+}
+
+func errorf(format string, args ...interface{}) *C.char {
+	return errorCString(fmt.Sprintf(format, args...))
+}
+
+func goString(value *C.char) string {
+	if value == nil {
+		return ""
+	}
+	return C.GoString(value)
 }
 
 //export request
 func request(requestParamsChar *C.char) *C.char {
-	requestParamsString := C.GoString(requestParamsChar)
+	if requestParamsChar == nil {
+		return errorCString("request 参数不能为空")
+	}
+	requestParamsString := goString(requestParamsChar)
 	requestParams := libs.RequestParams{}
 	err := json.Unmarshal([]byte(requestParamsString), &requestParams)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "request->err := json.Unmarshal([]byte(requestParamsString), &requestParams) failed: "+err.Error()))
+		return errorf("request 参数解析失败: %v", err)
 	}
 
 	req, err := buildRequest(requestParams)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "request->req, err := buildRequest(requestParams) failed: "+err.Error()))
+		return errorf("构建 request 失败: %v", err)
 	}
 
-	session := GetSession(requestParams.Id)
-	response, err := session.Request(requestParams.Method, requestParams.Url, req)
+	sessionEntry := acquireSession(requestParams.Id)
+	defer releaseSession(sessionEntry)
+	response, err := sessionEntry.session.Request(requestParams.Method, requestParams.Url, req)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "request->response, err := GetSession(requestParams.Id).Request(requestParams.Method, requestParams.Url, req) failed: "+err.Error()))
+		return errorf("执行 request 失败: %v", err)
 	}
-	defer response.Body.Close()
+	if response.Body != nil {
+		defer response.Body.Close()
+	}
 
 	responseParams := make(map[string]interface{})
-	responseParams["id"] = uuid.New().String()
+	responseID := uuid.New().String()
+	responseParams["id"] = responseID
 	responseParams["url"] = response.Url
 	responseParams["headers"] = response.Headers
 	responseParams["cookies"] = response.Cookies
@@ -86,15 +293,9 @@ func request(requestParamsChar *C.char) *C.char {
 
 	responseParamsString, err := json.Marshal(responseParams)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "request->responseParamsString, err := json.Marshal(responseParams) failed: "+err.Error()))
+		return errorf("序列化 response 失败: %v", err)
 	}
-	responseString := C.CString(string(responseParamsString))
-
-	unsafePointersLock.Lock()
-	unsafePointers[responseParams["id"].(string)] = responseString
-	defer unsafePointersLock.Unlock()
-
-	return responseString
+	return managedCString(responseID, string(responseParamsString))
 }
 
 func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
@@ -235,29 +436,18 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 
 //export freeMemory
 func freeMemory(responseId *C.char) {
-	responseIdString := C.GoString(responseId)
-
-	unsafePointersLock.Lock()
-	defer unsafePointersLock.Unlock()
-
-	ptr, ok := unsafePointers[responseIdString]
-
-	if !ok {
-		fmt.Println("freeMemory:", ok)
+	if responseId == nil {
 		return
 	}
-
-	if ptr != nil {
-		defer C.free(unsafe.Pointer(ptr))
-	}
-
-	delete(unsafePointers, responseIdString)
+	freeManagedCString(goString(responseId))
 }
 
 //export freeSession
 func freeSession(sessionId *C.char) {
-	sessionIdString := C.GoString(sessionId)
-	sessionsPool.Delete(sessionIdString)
+	if sessionId == nil {
+		return
+	}
+	_ = closeSession(goString(sessionId))
 }
 
 //export setDebug
@@ -267,11 +457,14 @@ func setDebug(enable bool) {
 
 //export stream_request
 func stream_request(requestParamsChar *C.char) *C.char {
-	requestParamsString := C.GoString(requestParamsChar)
+	if requestParamsChar == nil {
+		return errorCString("stream_request 参数不能为空")
+	}
+	requestParamsString := goString(requestParamsChar)
 	requestParams := libs.RequestParams{}
 	err := json.Unmarshal([]byte(requestParamsString), &requestParams)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "stream_request->json.Unmarshal failed: "+err.Error()))
+		return errorf("stream_request 参数解析失败: %v", err)
 	}
 
 	// 强制开启 Stream 模式
@@ -279,13 +472,14 @@ func stream_request(requestParamsChar *C.char) *C.char {
 
 	req, err := buildRequest(requestParams)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "stream_request->buildRequest failed: "+err.Error()))
+		return errorf("构建 stream request 失败: %v", err)
 	}
 
-	session := GetSession(requestParams.Id)
-	response, err := session.Request(requestParams.Method, requestParams.Url, req)
+	sessionEntry := acquireSession(requestParams.Id)
+	defer releaseSession(sessionEntry)
+	response, err := sessionEntry.session.Request(requestParams.Method, requestParams.Url, req)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "stream_request->session.Request failed: "+err.Error()))
+		return errorf("执行 stream request 失败: %v", err)
 	}
 
 	// 生成 stream_id，将 response 存入流连接池（不关闭 body）
@@ -293,6 +487,7 @@ func stream_request(requestParamsChar *C.char) *C.char {
 	streamPool.Store(streamId, &StreamEntry{
 		Response: response,
 		Body:     response.Body,
+		Session:  sessionEntry,
 	})
 
 	// 返回元信息（不包含 body 内容）
@@ -305,24 +500,26 @@ func stream_request(requestParamsChar *C.char) *C.char {
 
 	responseParamsString, err := json.Marshal(responseParams)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "stream_request->json.Marshal failed: "+err.Error()))
+		if actual, loaded := streamPool.LoadAndDelete(streamId); loaded {
+			if entry, ok := actual.(*StreamEntry); ok {
+				entry.close()
+			}
+		}
+		return errorf("序列化 stream response 失败: %v", err)
 	}
-	responseString := C.CString(string(responseParamsString))
-
-	unsafePointersLock.Lock()
-	unsafePointers[streamId] = responseString
-	defer unsafePointersLock.Unlock()
-
-	return responseString
+	return managedCString(streamId, string(responseParamsString))
 }
 
 //export stream_read
 func stream_read(streamIdChar *C.char, size C.int) *C.char {
-	streamId := C.GoString(streamIdChar)
+	if streamIdChar == nil {
+		return errorCString("stream_read 的 stream_id 不能为空")
+	}
+	streamId := goString(streamIdChar)
 
 	entry, ok := streamPool.Load(streamId)
 	if !ok {
-		return C.CString(fmt.Sprintf(errorFormat, "stream_read->stream not found: "+streamId))
+		return errorf("stream_read 找不到流: %s", streamId)
 	}
 
 	streamEntry := entry.(*StreamEntry)
@@ -332,7 +529,7 @@ func stream_read(streamIdChar *C.char, size C.int) *C.char {
 	}
 
 	buf := make([]byte, bufSize)
-	n, err := streamEntry.Body.Read(buf)
+	n, err := streamEntry.read(buf)
 
 	result := make(map[string]interface{})
 	if n > 0 {
@@ -344,62 +541,36 @@ func stream_read(streamIdChar *C.char, size C.int) *C.char {
 	if err == io.EOF {
 		result["eof"] = true
 	} else if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "stream_read->Read failed: "+err.Error()))
+		return errorf("stream_read 读取失败: %v", err)
 	} else {
 		result["eof"] = false
 	}
 
 	resultString, err := json.Marshal(result)
 	if err != nil {
-		return C.CString(fmt.Sprintf(errorFormat, "stream_read->json.Marshal failed: "+err.Error()))
+		return errorf("序列化 stream_read 结果失败: %v", err)
 	}
 
 	// stream_read 返回的指针用 stream_id + "_read" 作为 key 管理
 	// 每次调用会覆盖上一次的指针，避免内存泄漏
 	readKey := streamId + "_read"
-	unsafePointersLock.Lock()
-	if oldPtr, exists := unsafePointers[readKey]; exists && oldPtr != nil {
-		C.free(unsafe.Pointer(oldPtr))
-	}
-	responseString := C.CString(string(resultString))
-	unsafePointers[readKey] = responseString
-	unsafePointersLock.Unlock()
-
-	return responseString
+	return managedCString(readKey, string(resultString))
 }
 
 //export stream_close
 func stream_close(streamIdChar *C.char) {
-	streamId := C.GoString(streamIdChar)
-
-	entry, ok := streamPool.Load(streamId)
-	if !ok {
+	if streamIdChar == nil {
 		return
 	}
-
-	streamEntry := entry.(*StreamEntry)
-	if streamEntry.Body != nil {
-		streamEntry.Body.Close()
+	streamId := goString(streamIdChar)
+	if actual, ok := streamPool.LoadAndDelete(streamId); ok {
+		if streamEntry, ok := actual.(*StreamEntry); ok {
+			streamEntry.close()
+		}
 	}
-
-	streamPool.Delete(streamId)
-
-	// 清理相关的 unsafePointers
-	unsafePointersLock.Lock()
-	defer unsafePointersLock.Unlock()
-
-	// 清理 stream_id 对应的指针
-	if ptr, exists := unsafePointers[streamId]; exists && ptr != nil {
-		C.free(unsafe.Pointer(ptr))
-		delete(unsafePointers, streamId)
-	}
-
-	// 清理 stream_read 对应的指针
+	freeManagedCString(streamId)
 	readKey := streamId + "_read"
-	if ptr, exists := unsafePointers[readKey]; exists && ptr != nil {
-		C.free(unsafe.Pointer(ptr))
-		delete(unsafePointers, readKey)
-	}
+	freeManagedCString(readKey)
 }
 
 func main() {
