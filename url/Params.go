@@ -1,6 +1,7 @@
 package url
 
 import (
+	neturl "net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,9 +28,9 @@ func ParseParams(params interface{}) *Params {
 		for _, l := range strings.Split(v, "&") {
 			value := strings.SplitN(l, "=", 2)
 			if len(value) == 2 {
-				p.Add(value[0], value[1])
+				p.Add(decodeQueryComponent(value[0]), decodeQueryComponent(value[1]))
 			} else if len(value) == 1 && value[0] != "" {
-				p.Add(value[0], "")
+				p.Add(decodeQueryComponent(value[0]), "")
 			}
 		}
 	case map[string]string:
@@ -102,6 +103,14 @@ func ParseParams(params interface{}) *Params {
 		}
 	}
 	return p
+}
+
+func decodeQueryComponent(value string) string {
+	decoded, err := neturl.QueryUnescape(value)
+	if err != nil {
+		return value
+	}
+	return decoded
 }
 
 // 初始化Params结构体
@@ -177,11 +186,7 @@ func (p *Params) Encode() string {
 	var text []string
 	for _, key := range p.indexKey {
 		for _, value := range p.values[key] {
-			if value == "" {
-				text = append(text, key)
-			} else {
-				text = append(text, key+"="+value)
-			}
+			text = append(text, neturl.QueryEscape(key)+"="+neturl.QueryEscape(value))
 		}
 	}
 	return strings.Join(text, "&")

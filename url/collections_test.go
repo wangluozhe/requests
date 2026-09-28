@@ -4,6 +4,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -165,7 +166,7 @@ func TestCollectionsOrderAndZeroValues(t *testing.T) {
 			}
 		})
 	}
-	if got := ParseParams("b=x%20y&a=&b=z").Clone().Encode(); got != "b=x%20y&b=z&a" {
+	if got := ParseParams("b=x%20y&a=&b=z").Clone().Encode(); got != "b=x+y&b=z&a=" {
 		t.Fatalf("Params encoding changed: %s", got)
 	}
 	if got := ParseValues("b=x y&a=&b=z&c=1=2").Clone().Encode(); got != "b=x%20y&b=z&a=&c=1%3D2" {
@@ -176,6 +177,28 @@ func TestCollectionsOrderAndZeroValues(t *testing.T) {
 	var f *Files
 	if p.Clone() != nil || v.Clone() != nil || f.Clone() != nil {
 		t.Fatal("nil Clone should return nil")
+	}
+}
+
+func TestParamsEncodeEscapesQueryComponents(t *testing.T) {
+	params := NewParams()
+	params.Add("a b&c", "x&y=z 中文")
+	params.Add("empty", "")
+
+	const want = "a+b%26c=x%26y%3Dz+%E4%B8%AD%E6%96%87&empty="
+	if got := params.Encode(); got != want {
+		t.Fatalf("Params.Encode() = %q, want %q", got, want)
+	}
+
+	parsed, err := neturl.ParseQuery(params.Encode())
+	if err != nil {
+		t.Fatalf("ParseQuery returned error: %v", err)
+	}
+	if got := parsed.Get("a b&c"); got != "x&y=z 中文" {
+		t.Fatalf("decoded value = %q, want %q", got, "x&y=z 中文")
+	}
+	if got := parsed.Get("empty"); got != "" {
+		t.Fatalf("decoded empty value = %q, want empty", got)
 	}
 }
 
