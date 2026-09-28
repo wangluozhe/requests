@@ -1,0 +1,17 @@
+# field-hash: working tree; go1.26.2 windows/amd64; flags: cpu=4, benchtime=500ms, count=8
+BenchmarkTLSSettingsHash-4 4264537 164.1 ns/op 24 B/op 1 allocs/op
+BenchmarkTLSSettingsHash-4 3802102 147.3 ns/op 24 B/op 1 allocs/op
+BenchmarkTLSSettingsHash-4 4223546 149.5 ns/op 24 B/op 1 allocs/op
+BenchmarkTLSSettingsHash-4 3736010 183.0 ns/op 24 B/op 1 allocs/op
+BenchmarkTLSSettingsHash-4 2803556 209.1 ns/op 24 B/op 1 allocs/op
+BenchmarkTLSSettingsHash-4 3258175 204.1 ns/op 24 B/op 1 allocs/op
+BenchmarkTLSSettingsHash-4 3169248 183.0 ns/op 24 B/op 1 allocs/op
+BenchmarkTLSSettingsHash-4 3247046 201.0 ns/op 24 B/op 1 allocs/op
+BenchmarkHTTP2SettingsHash-4 2888305 223.3 ns/op 24 B/op 1 allocs/op
+BenchmarkHTTP2SettingsHash-4 2633564 224.5 ns/op 24 B/op 1 allocs/op
+BenchmarkHTTP2SettingsHash-4 2628219 213.9 ns/op 24 B/op 1 allocs/op
+BenchmarkHTTP2SettingsHash-4 2771313 274.5 ns/op 24 B/op 1 allocs/op
+BenchmarkHTTP2SettingsHash-4 2028502 281.5 ns/op 24 B/op 1 allocs/op
+BenchmarkHTTP2SettingsHash-4 2126173 270.2 ns/op 24 B/op 1 allocs/op
+BenchmarkHTTP2SettingsHash-4 2415652 276.5 ns/op 24 B/op 1 allocs/op
+BenchmarkHTTP2SettingsHash-4 2004405 280.8 ns/op 24 B/op 1 allocs/op

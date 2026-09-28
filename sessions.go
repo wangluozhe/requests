@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"container/list"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"net"
 	url2 "net/url"
@@ -162,29 +161,91 @@ func merge_setting(request_setting, session_setting interface{}) interface{} {
 		}
 		return requestDuration
 	case *http.TLSExtensions:
-		merged_setting := session_setting.(*http.TLSExtensions)
-		if merged_setting == nil {
-			return request_setting
+		requestSettings := request_setting.(*http.TLSExtensions)
+		if requestSettings != nil {
+			return cloneTLSExtensions(requestSettings)
 		}
-		requestd_setting := request_setting.(*http.TLSExtensions)
-		if requestd_setting == nil {
-			return merged_setting
-		}
-		return requestd_setting
+		return cloneTLSExtensions(session_setting.(*http.TLSExtensions))
 	case *http.HTTP2Settings:
-		merged_setting := session_setting.(*http.HTTP2Settings)
-		if merged_setting == nil {
-			return request_setting
+		requestSettings := request_setting.(*http.HTTP2Settings)
+		if requestSettings != nil {
+			return cloneHTTP2Settings(requestSettings)
 		}
-		requestd_setting := request_setting.(*http.HTTP2Settings)
-		if requestd_setting == nil {
-			return merged_setting
-		}
-		return requestd_setting
+		return cloneHTTP2Settings(session_setting.(*http.HTTP2Settings))
 	case nil:
 		return session_setting
 	}
 	return request_setting
+}
+
+// cloneTLSExtensions 创建只读语义所需的独立 TLS 配置快照。
+// 这里按字段复制，避免 CBOR 编解码带来的额外分配和耗时。
+func cloneTLSExtensions(settings *http.TLSExtensions) *http.TLSExtensions {
+	if settings == nil {
+		return nil
+	}
+	clone := &http.TLSExtensions{
+		NotUsedGREASE:        settings.NotUsedGREASE,
+		ClientHelloHexStream: settings.ClientHelloHexStream,
+	}
+	if ext := settings.SupportedSignatureAlgorithms; ext != nil {
+		clone.SupportedSignatureAlgorithms = &utls.SignatureAlgorithmsExtension{
+			SupportedSignatureAlgorithms: append([]utls.SignatureScheme(nil), ext.SupportedSignatureAlgorithms...),
+		}
+	}
+	if ext := settings.CertCompressionAlgo; ext != nil {
+		clone.CertCompressionAlgo = &utls.UtlsCompressCertExtension{
+			Algorithms: append([]utls.CertCompressionAlgo(nil), ext.Algorithms...),
+		}
+	}
+	if ext := settings.RecordSizeLimit; ext != nil {
+		clone.RecordSizeLimit = &utls.FakeRecordSizeLimitExtension{Limit: ext.Limit}
+	}
+	if ext := settings.DelegatedCredentials; ext != nil {
+		clone.DelegatedCredentials = &utls.DelegatedCredentialsExtension{
+			SupportedSignatureAlgorithms: append([]utls.SignatureScheme(nil), ext.SupportedSignatureAlgorithms...),
+		}
+	}
+	if ext := settings.SupportedVersions; ext != nil {
+		clone.SupportedVersions = &utls.SupportedVersionsExtension{
+			Versions: append([]uint16(nil), ext.Versions...),
+		}
+	}
+	if ext := settings.PSKKeyExchangeModes; ext != nil {
+		clone.PSKKeyExchangeModes = &utls.PSKKeyExchangeModesExtension{
+			Modes: append([]uint8(nil), ext.Modes...),
+		}
+	}
+	if ext := settings.SignatureAlgorithmsCert; ext != nil {
+		clone.SignatureAlgorithmsCert = &utls.SignatureAlgorithmsCertExtension{
+			SupportedSignatureAlgorithms: append([]utls.SignatureScheme(nil), ext.SupportedSignatureAlgorithms...),
+		}
+	}
+	if ext := settings.KeyShareCurves; ext != nil {
+		clone.KeyShareCurves = &utls.KeyShareExtension{KeyShares: make([]utls.KeyShare, len(ext.KeyShares))}
+		for i, share := range ext.KeyShares {
+			clone.KeyShareCurves.KeyShares[i] = utls.KeyShare{
+				Group: share.Group,
+				Data:  append([]byte(nil), share.Data...),
+			}
+		}
+	}
+	return clone
+}
+
+// cloneHTTP2Settings 创建只读语义所需的独立 HTTP/2 配置快照。
+func cloneHTTP2Settings(settings *http.HTTP2Settings) *http.HTTP2Settings {
+	if settings == nil {
+		return nil
+	}
+	clone := *settings
+	clone.Settings = append([]http.HTTP2Setting(nil), settings.Settings...)
+	if settings.HeaderPriority != nil {
+		priority := *settings.HeaderPriority
+		clone.HeaderPriority = &priority
+	}
+	clone.PriorityFrames = append([]http.HTTP2PriorityFrame(nil), settings.PriorityFrames...)
+	return &clone
 }
 
 // 禁用redirect
@@ -193,21 +254,25 @@ var disableRedirect = func(request *http.Request, via []*http.Request) error {
 }
 
 const (
-	DEFAULT_REDIRECT_LIMIT = 30 // 默认redirect最大次数
-	DEFAULT_TIMEOUT        = 30 // 默认client响应时间
+	DEFAULT_REDIRECT_LIMIT        = 30 // 默认redirect最大次数
+	DEFAULT_TIMEOUT               = 30 // 默认client响应时间
+	DEFAULT_TRANSPORT_CACHE_LIMIT = 32 // Transport缓存默认上限
 )
 
 // 新建默认Session
 func NewSession() *Session {
 	session := &Session{
-		Headers:        default_headers(),
-		Cookies:        nil,
-		Timeout:        time.Duration(DEFAULT_TIMEOUT) * time.Second,
-		Verify:         true,
-		MaxRedirects:   DEFAULT_REDIRECT_LIMIT,
-		transport:      nil,
-		transportCache: make(map[string]*http.Transport),
-		cacheLock:      sync.Mutex{},
+		Headers:             default_headers(),
+		Cookies:             nil,
+		Timeout:             time.Duration(DEFAULT_TIMEOUT) * time.Second,
+		Verify:              true,
+		MaxRedirects:        DEFAULT_REDIRECT_LIMIT,
+		transport:           nil,
+		transportCache:      make(map[string]*http.Transport),
+		transportLRU:        list.New(),
+		transportLRUIndex:   make(map[string]*list.Element),
+		TransportCacheLimit: DEFAULT_TRANSPORT_CACHE_LIMIT,
+		cacheLock:           sync.Mutex{},
 	}
 	cookies, _ := cookiejar.New(nil)
 	session.Cookies = cookies
@@ -238,24 +303,60 @@ var defaultSession = NewSession()
 
 // Session结构体
 type Session struct {
-	Params         *url.Params
-	Headers        *http.Header
-	Cookies        *cookiejar.Jar
-	Auth           []string
-	Timeout        time.Duration
-	Proxies        string
-	Verify         bool
-	Cert           []string
-	Ja3            string
-	RandomJA3      bool
-	ForceHTTP1     bool
-	TLSExtensions  *http.TLSExtensions
-	HTTP2Settings  *http.HTTP2Settings
-	MaxRedirects   int
-	Middlewares    []Middleware // 中间件列表
-	transport      *http.Transport
-	transportCache map[string]*http.Transport
-	cacheLock      sync.Mutex
+	Params            *url.Params
+	Headers           *http.Header
+	Cookies           *cookiejar.Jar
+	Auth              []string
+	Timeout           time.Duration
+	Proxies           string
+	Verify            bool
+	Cert              []string
+	Ja3               string
+	RandomJA3         bool
+	ForceHTTP1        bool
+	TLSExtensions     *http.TLSExtensions
+	HTTP2Settings     *http.HTTP2Settings
+	MaxRedirects      int
+	Middlewares       []Middleware // 中间件列表
+	transport         *http.Transport
+	transportCache    map[string]*http.Transport
+	transportLRU      *list.List
+	transportLRUIndex map[string]*list.Element
+	// TransportCacheLimit 控制每个 Session 缓存的 Transport 数量。小于等于 0 时使用默认值。
+	TransportCacheLimit int
+	cacheLock           sync.Mutex
+	closed              bool
+}
+
+// Close 关闭 Session 的基础 Transport 和缓存中的所有 Transport。
+// 已在使用的连接不会被中断，只会关闭空闲连接；关闭后 Session 不再接受请求。
+func (s *Session) Close() error {
+	s.cacheLock.Lock()
+	if s.closed {
+		s.cacheLock.Unlock()
+		return nil
+	}
+	s.closed = true
+	transports := make([]*http.Transport, 0, len(s.transportCache)+1)
+	for _, tr := range s.transportCache {
+		transports = append(transports, tr)
+	}
+	if s.transport != nil {
+		transports = append(transports, s.transport)
+	}
+	s.transportCache = make(map[string]*http.Transport)
+	if s.transportLRU == nil {
+		s.transportLRU = list.New()
+	} else {
+		s.transportLRU.Init()
+	}
+	s.transportLRUIndex = make(map[string]*list.Element)
+	s.cacheLock.Unlock()
+
+	for _, tr := range transports {
+		tr.CloseIdleConnections()
+	}
+	return nil
 }
 
 // Use 添加中间件
@@ -402,11 +503,15 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	// 设置强制http1
 	forceHTTP1 := *merge_setting(req.ForceHTTP1, Bool(s.ForceHTTP1)).(*bool)
 	// 设置tls
-	tlsExtensions := merge_setting(req.TLSExtensions, s.TLSExtensions).(*http.TLSExtensions)
+	// 这里只选择配置来源，不提前复制；Transport 缓存命中时不会使用配置指针。
+	tlsExtensions := req.TLSExtensions
+	if tlsExtensions == nil {
+		tlsExtensions = s.TLSExtensions
+	}
 	// 设置http2
-	http2Settings := merge_setting(req.HTTP2Settings, s.HTTP2Settings).(*http.HTTP2Settings)
-	if http2Settings != nil && http2Settings.HeadersID == 0 {
-		http2Settings.HeadersID = 1
+	http2Settings := req.HTTP2Settings
+	if http2Settings == nil {
+		http2Settings = s.HTTP2Settings
 	}
 
 	// --- 缓存逻辑开始 ---
@@ -428,14 +533,32 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	transport, err := func() (*http.Transport, error) {
 		s.cacheLock.Lock() // 加锁保护缓存
 		defer s.cacheLock.Unlock()
+		if s.closed {
+			return nil, fmt.Errorf("session is closed")
+		}
+		if s.transportCache == nil {
+			s.transportCache = make(map[string]*http.Transport)
+		}
+		if s.transportLRU == nil {
+			s.transportLRU = list.New()
+		}
+		if s.transportLRUIndex == nil {
+			s.transportLRUIndex = make(map[string]*list.Element)
+		}
 
-		tr, found := s.transportCache[cacheKey]
-		if found {
+		if tr, found := s.cachedTransportLocked(cacheKey); found {
 			return tr, nil
 		}
 
+		// 只有缓存未命中时才创建快照，避免每个缓存命中请求重复分配。
+		tlsExtensions = cloneTLSExtensions(tlsExtensions)
+		http2Settings = cloneHTTP2Settings(http2Settings)
+		if http2Settings != nil && http2Settings.HeadersID == 0 {
+			http2Settings.HeadersID = 1
+		}
+
 		// 缓存未命中，创建新的 Transport
-		tr = s.transport.Clone() // 从会话的基础 transport 克隆
+		tr := s.transport.Clone() // 从会话的基础 transport 克隆
 		tr.TLSClientConfig = s.transport.TLSClientConfig.Clone()
 
 		if proxies != "" {
@@ -525,7 +648,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			tr.DisableKeepAlives = true
 		}
 
-		s.transportCache[cacheKey] = tr // 将新创建的 transport 存入缓存
+		s.storeTransportLocked(cacheKey, tr)
 		return tr, nil
 	}()
 	if err != nil {
@@ -652,6 +775,64 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	return response, nil
 }
 
+// cachedTransportLocked 获取缓存条目并更新 LRU 顺序。调用方必须持有 cacheLock。
+func (s *Session) cachedTransportLocked(key string) (*http.Transport, bool) {
+	if s.transportCache == nil {
+		return nil, false
+	}
+	tr, found := s.transportCache[key]
+	if !found {
+		return nil, false
+	}
+	if item := s.transportLRUIndex[key]; item != nil {
+		s.transportLRU.MoveToFront(item)
+	}
+	return tr, true
+}
+
+// storeTransportLocked 插入缓存并淘汰最久未使用的 Transport。调用方必须持有 cacheLock。
+func (s *Session) storeTransportLocked(key string, tr *http.Transport) {
+	if s.transportCache == nil {
+		s.transportCache = make(map[string]*http.Transport)
+	}
+	if s.transportLRU == nil {
+		s.transportLRU = list.New()
+	}
+	if s.transportLRUIndex == nil {
+		s.transportLRUIndex = make(map[string]*list.Element)
+	}
+	if old, exists := s.transportCache[key]; exists {
+		if old != tr {
+			old.CloseIdleConnections()
+		}
+		delete(s.transportCache, key)
+		if item := s.transportLRUIndex[key]; item != nil {
+			s.transportLRU.Remove(item)
+			delete(s.transportLRUIndex, key)
+		}
+	}
+	limit := s.TransportCacheLimit
+	if limit <= 0 {
+		limit = DEFAULT_TRANSPORT_CACHE_LIMIT
+	}
+	for len(s.transportCache) >= limit {
+		oldest := s.transportLRU.Back()
+		if oldest == nil {
+			break
+		}
+		oldKey := oldest.Value.(string)
+		oldTransport := s.transportCache[oldKey]
+		delete(s.transportCache, oldKey)
+		delete(s.transportLRUIndex, oldKey)
+		s.transportLRU.Remove(oldest)
+		if oldTransport != nil {
+			oldTransport.CloseIdleConnections()
+		}
+	}
+	s.transportCache[key] = tr
+	s.transportLRUIndex[key] = s.transportLRU.PushFront(key)
+}
+
 // 构建response参数
 func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
 	response := &models.Response{
@@ -722,28 +903,233 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 	return response, nil
 }
 
-// TLSExtensions的hash
-func tlsExtensionsHash(tlsExtensions *http.TLSExtensions) string {
-	bytes, err := json.Marshal(tlsExtensions)
-	if err != nil {
-		return ""
-	}
+const (
+	fnv64Offset = uint64(14695981039346656037)
+	fnv64Prime  = uint64(1099511628211)
+)
 
-	h := fnv.New64a()
-	h.Write(bytes)
-	return strconv.Itoa(int(h.Sum64()))
+// settingsHasher 使用字段和长度直接计算 FNV-1a，避免 JSON 编码和临时字节切片。
+type settingsHasher struct {
+	sum uint64
 }
 
-// HTTP2Settings的hash
-func http2SettingsHash(http2Settings *http.HTTP2Settings) string {
-	bytes, err := json.Marshal(http2Settings)
-	if err != nil {
-		return ""
-	}
+func newSettingsHasher() settingsHasher {
+	return settingsHasher{sum: fnv64Offset}
+}
 
-	h := fnv.New64a()
-	h.Write(bytes)
-	return strconv.Itoa(int(h.Sum64()))
+func (h *settingsHasher) writeByte(value byte) {
+	h.sum ^= uint64(value)
+	h.sum *= fnv64Prime
+}
+
+func (h *settingsHasher) writeBool(value bool) {
+	if value {
+		h.writeByte(1)
+		return
+	}
+	h.writeByte(0)
+}
+
+func (h *settingsHasher) writeUint64(value uint64) {
+	for i := 0; i < 8; i++ {
+		h.writeByte(byte(value))
+		value >>= 8
+	}
+}
+
+func (h *settingsHasher) writeInt(value int) {
+	h.writeUint64(uint64(int64(value)))
+}
+
+func (h *settingsHasher) writeBytes(value []byte) {
+	if value == nil {
+		h.writeByte(0)
+		return
+	}
+	h.writeByte(1)
+	h.writeUint64(uint64(len(value)))
+	for _, item := range value {
+		h.writeByte(item)
+	}
+}
+
+func (h *settingsHasher) writeString(value string) {
+	h.writeUint64(uint64(len(value)))
+	for i := 0; i < len(value); i++ {
+		h.writeByte(value[i])
+	}
+}
+
+func (h *settingsHasher) result() string {
+	return strconv.FormatUint(h.sum, 10)
+}
+
+func (h *settingsHasher) writeSignatureSchemes(values []utls.SignatureScheme) {
+	if values == nil {
+		h.writeByte(0)
+		return
+	}
+	h.writeByte(1)
+	h.writeUint64(uint64(len(values)))
+	for _, value := range values {
+		h.writeUint64(uint64(value))
+	}
+}
+
+func (h *settingsHasher) writeUint16s(values []uint16) {
+	if values == nil {
+		h.writeByte(0)
+		return
+	}
+	h.writeByte(1)
+	h.writeUint64(uint64(len(values)))
+	for _, value := range values {
+		h.writeUint64(uint64(value))
+	}
+}
+
+func (h *settingsHasher) writeUint8s(values []uint8) {
+	if values == nil {
+		h.writeByte(0)
+		return
+	}
+	h.writeByte(1)
+	h.writeUint64(uint64(len(values)))
+	for _, value := range values {
+		h.writeUint64(uint64(value))
+	}
+}
+
+func tlsExtensionsHash(tlsExtensions *http.TLSExtensions) string {
+	h := newSettingsHasher()
+	if tlsExtensions == nil {
+		h.writeByte(0)
+		return h.result()
+	}
+	h.writeByte(1)
+
+	if ext := tlsExtensions.SupportedSignatureAlgorithms; ext != nil {
+		h.writeByte(1)
+		h.writeSignatureSchemes(ext.SupportedSignatureAlgorithms)
+	} else {
+		h.writeByte(0)
+	}
+	if ext := tlsExtensions.CertCompressionAlgo; ext != nil {
+		h.writeByte(1)
+		h.writeUint64(uint64(len(ext.Algorithms)))
+		for _, value := range ext.Algorithms {
+			h.writeUint64(uint64(value))
+		}
+	} else {
+		h.writeByte(0)
+	}
+	if ext := tlsExtensions.RecordSizeLimit; ext != nil {
+		h.writeByte(1)
+		h.writeUint64(uint64(ext.Limit))
+	} else {
+		h.writeByte(0)
+	}
+	if ext := tlsExtensions.DelegatedCredentials; ext != nil {
+		h.writeByte(1)
+		h.writeSignatureSchemes(ext.SupportedSignatureAlgorithms)
+	} else {
+		h.writeByte(0)
+	}
+	if ext := tlsExtensions.SupportedVersions; ext != nil {
+		h.writeByte(1)
+		h.writeUint16s(ext.Versions)
+	} else {
+		h.writeByte(0)
+	}
+	if ext := tlsExtensions.PSKKeyExchangeModes; ext != nil {
+		h.writeByte(1)
+		h.writeUint8s(ext.Modes)
+	} else {
+		h.writeByte(0)
+	}
+	if ext := tlsExtensions.SignatureAlgorithmsCert; ext != nil {
+		h.writeByte(1)
+		h.writeSignatureSchemes(ext.SupportedSignatureAlgorithms)
+	} else {
+		h.writeByte(0)
+	}
+	if ext := tlsExtensions.KeyShareCurves; ext != nil {
+		h.writeByte(1)
+		if ext.KeyShares == nil {
+			h.writeByte(0)
+		} else {
+			h.writeByte(1)
+			h.writeUint64(uint64(len(ext.KeyShares)))
+			for _, share := range ext.KeyShares {
+				h.writeUint64(uint64(share.Group))
+				h.writeBytes(share.Data)
+			}
+		}
+	} else {
+		h.writeByte(0)
+	}
+	h.writeBool(tlsExtensions.NotUsedGREASE)
+	h.writeString(tlsExtensions.ClientHelloHexStream)
+	return h.result()
+}
+
+func (h *settingsHasher) writeHTTP2Priority(priority *http.HTTP2PriorityParam) {
+	if priority == nil {
+		h.writeByte(0)
+		return
+	}
+	h.writeByte(1)
+	h.writeUint64(uint64(priority.StreamDep))
+	h.writeBool(priority.Exclusive)
+	h.writeUint64(uint64(priority.Weight))
+}
+
+func (h *settingsHasher) writeHTTP2PriorityFrame(frame http.HTTP2PriorityFrame) {
+	h.writeUint64(uint64(frame.HTTP2FrameHeader.Type))
+	h.writeUint64(uint64(frame.HTTP2FrameHeader.Flags))
+	h.writeUint64(uint64(frame.HTTP2FrameHeader.Length))
+	h.writeUint64(uint64(frame.HTTP2FrameHeader.StreamID))
+	h.writeUint64(uint64(frame.HTTP2PriorityParam.StreamDep))
+	h.writeBool(frame.HTTP2PriorityParam.Exclusive)
+	h.writeUint64(uint64(frame.HTTP2PriorityParam.Weight))
+}
+
+// HTTP2Settings 的哈希将 HeadersID=0 规范化为默认值 1，与 Transport 配置保持一致。
+func http2SettingsHash(http2Settings *http.HTTP2Settings) string {
+	h := newSettingsHasher()
+	if http2Settings == nil {
+		h.writeByte(0)
+		return h.result()
+	}
+	h.writeByte(1)
+	if http2Settings.Settings == nil {
+		h.writeByte(0)
+	} else {
+		h.writeByte(1)
+		h.writeUint64(uint64(len(http2Settings.Settings)))
+	}
+	for _, setting := range http2Settings.Settings {
+		h.writeUint64(uint64(setting.ID))
+		h.writeUint64(uint64(setting.Val))
+	}
+	h.writeInt(http2Settings.ConnectionFlow)
+	headersID := http2Settings.HeadersID
+	if headersID == 0 {
+		headersID = 1
+	}
+	h.writeInt(headersID)
+	h.writeBool(http2Settings.SettingsAck)
+	h.writeHTTP2Priority(http2Settings.HeaderPriority)
+	if http2Settings.PriorityFrames == nil {
+		h.writeByte(0)
+	} else {
+		h.writeByte(1)
+		h.writeUint64(uint64(len(http2Settings.PriorityFrames)))
+	}
+	for _, frame := range http2Settings.PriorityFrames {
+		h.writeHTTP2PriorityFrame(frame)
+	}
+	return h.result()
 }
 
 // 解码Body数据

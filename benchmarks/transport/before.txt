@@ -1,0 +1,49 @@
+﻿# before: 6746a5c; go version go version go1.26.2 windows/amd64; flags: cpu=4, benchtime=200ms, count=1; 6 alternating rounds
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSettingsSnapshotTLS-4     	136424329	         1.778 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSettingsSnapshotHTTP2-4   	137638434	         1.663 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTransportCacheLookup-4    	17646799	        13.90 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSettingsSnapshotTLS-4     	135142135	         1.801 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSettingsSnapshotHTTP2-4   	142555484	         1.660 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTransportCacheLookup-4    	17645241	        13.56 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSettingsSnapshotTLS-4     	123544935	         1.915 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSettingsSnapshotHTTP2-4   	138224960	         1.720 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTransportCacheLookup-4    	15616966	        13.84 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSettingsSnapshotTLS-4     	125091668	         1.877 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSettingsSnapshotHTTP2-4   	129806701	         1.789 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTransportCacheLookup-4    	16977327	        14.90 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSettingsSnapshotTLS-4     	127267616	         1.921 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSettingsSnapshotHTTP2-4   	138483506	         1.790 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTransportCacheLookup-4    	16178720	        14.07 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/wangluozhe/requests
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSettingsSnapshotTLS-4     	126496946	         1.959 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSettingsSnapshotHTTP2-4   	135554544	         1.779 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTransportCacheLookup-4    	16867316	        14.64 ns/op	       0 B/op	       0 allocs/op
+PASS
