@@ -1,6 +1,7 @@
 package models
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -92,7 +93,22 @@ func (res *Response) JsonMap() (map[string]interface{}, error) {
 
 // 使用go-simplejson解析
 func (res *Response) SimpleJson() (*simplejson.Json, error) {
-	return simplejson.NewFromReader(res.Body)
+	if res.Content != nil {
+		return simplejson.NewFromReader(bytes.NewReader(res.Content))
+	}
+	if res.Body == nil {
+		return nil, errors.New("response body is empty")
+	}
+
+	// 流式响应没有 Content 时先缓存，再恢复 Body，避免解析操作消耗调用方的读取位置。
+	content, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	res.Content = content
+	res.Body = io.NopCloser(bytes.NewReader(content))
+	if err != nil {
+		return nil, err
+	}
+	return simplejson.NewFromReader(bytes.NewReader(content))
 }
 
 // 状态码是否合格
