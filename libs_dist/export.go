@@ -27,19 +27,36 @@ import (
 	"github.com/wangluozhe/requests/utils"
 )
 
-var unsafePointers = make(map[string]*C.char)
+const (
+	// C API 返回值即使调用方忘记释放，也会在 TTL 到期或达到容量上限时回收。
+	cAPICleanupInterval    = time.Minute
+	cAPIStreamIdleTimeout  = 5 * time.Minute
+	cAPISessionIdleTimeout = 30 * time.Minute
+	cAPIStringLifetime     = 30 * time.Minute
+	cAPIMaxManagedStrings  = 4096
+)
+
+type managedCStringEntry struct {
+	ptr       *C.char
+	createdAt time.Time
+	sequence  uint64
+}
+
+var unsafePointers = make(map[string]managedCStringEntry)
 var unsafePointersLock = sync.Mutex{}
+var unsafePointerSequence uint64
 
 var sessionsPool = sync.Map{}
 
 // StreamEntry 保存一个活跃的流式响应连接
 type StreamEntry struct {
-	Response *models.Response
-	Body     io.ReadCloser
-	Session  *sessionEntry
-	mu       sync.Mutex
-	readMu   sync.Mutex
-	closed   bool
+	Response     *models.Response
+	Body         io.ReadCloser
+	Session      *sessionEntry
+	mu           sync.Mutex
+	readMu       sync.Mutex
+	closed       bool
+	lastActivity time.Time
 }
 
 var streamPool = sync.Map{}
@@ -47,19 +64,21 @@ var streamPool = sync.Map{}
 // sessionEntry 管理 C API 对 Session 的所有权和活动调用。
 // freeSession 会先标记关闭，再等待引用归零，避免请求使用已关闭的 Session。
 type sessionEntry struct {
-	session *requests.Session
-	mu      sync.Mutex
-	refs    int
-	closing bool
-	done    chan struct{}
-	closed  chan struct{}
+	session      *requests.Session
+	mu           sync.Mutex
+	refs         int
+	closing      bool
+	done         chan struct{}
+	closed       chan struct{}
+	lastActivity time.Time
 }
 
 func newSessionEntry() *sessionEntry {
 	return &sessionEntry{
-		session: requests.NewSession(),
-		done:    make(chan struct{}),
-		closed:  make(chan struct{}),
+		session:      requests.NewSession(),
+		done:         make(chan struct{}),
+		closed:       make(chan struct{}),
+		lastActivity: time.Now(),
 	}
 }
 
@@ -71,6 +90,9 @@ func sessionForID(id string) *sessionEntry {
 			entry.mu.Lock()
 			closing := entry.closing
 			closed := entry.closed
+			if !closing {
+				entry.lastActivity = time.Now()
+			}
 			entry.mu.Unlock()
 			if !closing {
 				return entry
@@ -90,6 +112,9 @@ func sessionForID(id string) *sessionEntry {
 		entry.mu.Lock()
 		closing := entry.closing
 		closed := entry.closed
+		if !closing {
+			entry.lastActivity = time.Now()
+		}
 		entry.mu.Unlock()
 		if !closing {
 			return entry
@@ -104,6 +129,7 @@ func acquireSession(id string) *sessionEntry {
 		entry.mu.Lock()
 		if !entry.closing {
 			entry.refs++
+			entry.lastActivity = time.Now()
 			entry.mu.Unlock()
 			return entry
 		}
@@ -119,6 +145,9 @@ func releaseSession(entry *sessionEntry) {
 	}
 	entry.mu.Lock()
 	entry.refs--
+	if entry.refs == 0 {
+		entry.lastActivity = time.Now()
+	}
 	if entry.closing && entry.refs == 0 {
 		close(entry.done)
 	}
@@ -142,6 +171,26 @@ func (entry *StreamEntry) close() {
 	}
 }
 
+func (entry *StreamEntry) closeIfIdle(cutoff time.Time) bool {
+	if entry == nil || !entry.readMu.TryLock() {
+		return false
+	}
+	defer entry.readMu.Unlock()
+
+	entry.mu.Lock()
+	if entry.closed || !entry.lastActivity.Before(cutoff) {
+		entry.mu.Unlock()
+		return false
+	}
+	entry.closed = true
+	body := entry.Body
+	entry.mu.Unlock()
+	if body != nil {
+		_ = body.Close()
+	}
+	return true
+}
+
 func (entry *StreamEntry) read(buf []byte) (int, error) {
 	entry.readMu.Lock()
 	defer entry.readMu.Unlock()
@@ -151,9 +200,28 @@ func (entry *StreamEntry) read(buf []byte) (int, error) {
 		return 0, errors.New("stream is closed")
 	}
 	body := entry.Body
+	entry.lastActivity = time.Now()
 	entry.mu.Unlock()
 	// 不持有状态锁执行 Read，允许 close 同时关闭底层连接以唤醒阻塞读取。
-	return body.Read(buf)
+	n, err := body.Read(buf)
+	entry.mu.Lock()
+	entry.lastActivity = time.Now()
+	entry.mu.Unlock()
+	if entry.Session != nil {
+		entry.Session.touch()
+	}
+	return n, err
+}
+
+func (entry *sessionEntry) touch() {
+	if entry == nil {
+		return
+	}
+	entry.mu.Lock()
+	if !entry.closing {
+		entry.lastActivity = time.Now()
+	}
+	entry.mu.Unlock()
 }
 
 func closeStreamsForSession(session *sessionEntry) {
@@ -177,6 +245,15 @@ func closeStreamsForSession(session *sessionEntry) {
 	})
 }
 
+func finishSessionClose(id string, entry *sessionEntry, done <-chan struct{}) error {
+	<-done
+	closeStreamsForSession(entry)
+	err := entry.session.Close()
+	sessionsPool.CompareAndDelete(id, entry)
+	close(entry.closed)
+	return err
+}
+
 func closeSession(id string) error {
 	actual, ok := sessionsPool.Load(id)
 	if !ok {
@@ -196,13 +273,87 @@ func closeSession(id string) error {
 	}
 	done := entry.done
 	entry.mu.Unlock()
+	return finishSessionClose(id, entry, done)
+}
 
-	<-done
-	closeStreamsForSession(entry)
-	err := entry.session.Close()
-	sessionsPool.CompareAndDelete(id, entry)
-	close(entry.closed)
-	return err
+func closeSessionIfIdle(id string, entry *sessionEntry, cutoff time.Time) bool {
+	entry.mu.Lock()
+	if entry.closing || entry.refs != 0 || !entry.lastActivity.Before(cutoff) {
+		entry.mu.Unlock()
+		return false
+	}
+	entry.closing = true
+	close(entry.done)
+	done := entry.done
+	entry.mu.Unlock()
+	_ = finishSessionClose(id, entry, done)
+	return true
+}
+
+func cleanupManagedCStrings(cutoff time.Time) {
+	var expired []*C.char
+	unsafePointersLock.Lock()
+	for id, entry := range unsafePointers {
+		if entry.createdAt.Before(cutoff) {
+			delete(unsafePointers, id)
+			expired = append(expired, entry.ptr)
+		}
+	}
+	unsafePointersLock.Unlock()
+	for _, ptr := range expired {
+		if ptr != nil {
+			C.free(unsafe.Pointer(ptr))
+		}
+	}
+}
+
+func cleanupIdleStreams(cutoff time.Time) {
+	streamPool.Range(func(key, value interface{}) bool {
+		streamID, ok := key.(string)
+		if !ok {
+			return true
+		}
+		entry, ok := value.(*StreamEntry)
+		if !ok || !entry.closeIfIdle(cutoff) {
+			return true
+		}
+		streamPool.CompareAndDelete(streamID, entry)
+		freeManagedCString(streamID)
+		freeManagedCString(streamID + "_read")
+		return true
+	})
+}
+
+func cleanupIdleSessions(cutoff time.Time) {
+	sessionsPool.Range(func(key, value interface{}) bool {
+		id, ok := key.(string)
+		if !ok {
+			return true
+		}
+		entry, ok := value.(*sessionEntry)
+		if ok {
+			closeSessionIfIdle(id, entry, cutoff)
+		}
+		return true
+	})
+}
+
+func cleanupCAPIResources(now time.Time) {
+	cleanupManagedCStrings(now.Add(-cAPIStringLifetime))
+	cleanupIdleStreams(now.Add(-cAPIStreamIdleTimeout))
+	cleanupIdleSessions(now.Add(-cAPISessionIdleTimeout))
+}
+
+func runCAPICleanup() {
+	ticker := time.NewTicker(cAPICleanupInterval)
+	defer ticker.Stop()
+	for now := range ticker.C {
+		cleanupCAPIResources(now)
+	}
+}
+
+func init() {
+	go runCAPICleanup()
 }
 
 func GetSession(id string) *requests.Session {
@@ -212,25 +363,44 @@ func GetSession(id string) *requests.Session {
 // managedCString 统一登记返回给 C 调用方的字符串，调用 freeMemory 释放。
 func managedCString(id, value string) *C.char {
 	ptr := C.CString(value)
+	var release []*C.char
 	unsafePointersLock.Lock()
 	old := unsafePointers[id]
-	unsafePointers[id] = ptr
+	unsafePointerSequence++
+	unsafePointers[id] = managedCStringEntry{ptr: ptr, createdAt: time.Now(), sequence: unsafePointerSequence}
+	if len(unsafePointers) > cAPIMaxManagedStrings {
+		oldestID := ""
+		var oldest managedCStringEntry
+		for candidateID, candidate := range unsafePointers {
+			if oldestID == "" || candidate.sequence < oldest.sequence {
+				oldestID = candidateID
+				oldest = candidate
+			}
+		}
+		delete(unsafePointers, oldestID)
+		release = append(release, oldest.ptr)
+	}
 	unsafePointersLock.Unlock()
-	if old != nil {
-		C.free(unsafe.Pointer(old))
+	if old.ptr != nil {
+		release = append(release, old.ptr)
+	}
+	for _, oldPtr := range release {
+		if oldPtr != nil && oldPtr != ptr {
+			C.free(unsafe.Pointer(oldPtr))
+		}
 	}
 	return ptr
 }
 
 func freeManagedCString(id string) {
 	unsafePointersLock.Lock()
-	ptr, ok := unsafePointers[id]
+	entry, ok := unsafePointers[id]
 	if ok {
 		delete(unsafePointers, id)
 	}
 	unsafePointersLock.Unlock()
-	if ok && ptr != nil {
-		C.free(unsafe.Pointer(ptr))
+	if ok && entry.ptr != nil {
+		C.free(unsafe.Pointer(entry.ptr))
 	}
 }
 
@@ -490,9 +660,10 @@ func stream_request(requestParamsChar *C.char) *C.char {
 	// 生成 stream_id，将 response 存入流连接池（不关闭 body）
 	streamId := uuid.New().String()
 	streamPool.Store(streamId, &StreamEntry{
-		Response: response,
-		Body:     response.Body,
-		Session:  sessionEntry,
+		Response:     response,
+		Body:         response.Body,
+		Session:      sessionEntry,
+		lastActivity: time.Now(),
 	})
 
 	// 返回元信息（不包含 body 内容）

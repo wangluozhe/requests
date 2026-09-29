@@ -128,3 +128,74 @@ func TestStreamEntryReadAndClose(t *testing.T) {
 		t.Fatal("read succeeded after stream close")
 	}
 }
+
+func TestCleanupIdleStreamsReclaimsOnlyExpiredEntries(t *testing.T) {
+	oldID := "cleanup-old-stream"
+	newID := "cleanup-new-stream"
+	oldBody := &closeTrackingBody{Reader: strings.NewReader("old"), closed: make(chan struct{})}
+	newBody := &closeTrackingBody{Reader: strings.NewReader("new"), closed: make(chan struct{})}
+	oldEntry := &StreamEntry{Body: oldBody, lastActivity: time.Now().Add(-cAPIStreamIdleTimeout - time.Second)}
+	newEntry := &StreamEntry{Body: newBody, lastActivity: time.Now()}
+	streamPool.Store(oldID, oldEntry)
+	streamPool.Store(newID, newEntry)
+	defer streamPool.LoadAndDelete(oldID)
+	defer streamPool.LoadAndDelete(newID)
+
+	cleanupIdleStreams(time.Now().Add(-cAPIStreamIdleTimeout))
+	if _, ok := streamPool.Load(oldID); ok {
+		t.Fatal("expired stream remained in pool")
+	}
+	select {
+	case <-oldBody.closed:
+	default:
+		t.Fatal("expired stream body was not closed")
+	}
+	if _, ok := streamPool.Load(newID); !ok {
+		t.Fatal("active stream was reclaimed")
+	}
+}
+
+func TestCleanupIdleSessionsReclaimsOnlyUnreferencedEntries(t *testing.T) {
+	oldID := "cleanup-old-session"
+	activeID := "cleanup-active-session"
+	oldEntry := newSessionEntry()
+	oldEntry.lastActivity = time.Now().Add(-cAPISessionIdleTimeout - time.Second)
+	activeEntry := newSessionEntry()
+	activeEntry.lastActivity = oldEntry.lastActivity
+	activeEntry.refs = 1
+	sessionsPool.Store(oldID, oldEntry)
+	sessionsPool.Store(activeID, activeEntry)
+	defer func() {
+		_ = closeSession(activeID)
+		sessionsPool.Delete(oldID)
+	}()
+
+	cleanupIdleSessions(time.Now().Add(-cAPISessionIdleTimeout))
+	if _, ok := sessionsPool.Load(oldID); ok {
+		t.Fatal("expired session remained in pool")
+	}
+	if _, ok := sessionsPool.Load(activeID); !ok {
+		t.Fatal("session with active references was reclaimed")
+	}
+	activeEntry.mu.Lock()
+	activeEntry.refs = 0
+	activeEntry.mu.Unlock()
+}
+
+func TestCleanupManagedCStringsReclaimsExpiredEntries(t *testing.T) {
+	const id = "cleanup-expired-string"
+	ptr := managedCString(id, "expired")
+	if ptr == nil {
+		t.Fatal("managedCString returned nil")
+	}
+	unsafePointersLock.Lock()
+	entry := unsafePointers[id]
+	entry.createdAt = time.Now().Add(-cAPIStringLifetime - time.Second)
+	unsafePointers[id] = entry
+	unsafePointersLock.Unlock()
+
+	cleanupManagedCStrings(time.Now().Add(-cAPIStringLifetime))
+	if _, ok := unsafePointers[id]; ok {
+		t.Fatal("expired managed string remained registered")
+	}
+}
