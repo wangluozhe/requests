@@ -303,17 +303,19 @@ var defaultSession = NewSession()
 
 // Session结构体
 type Session struct {
-	Params            *url.Params
-	Headers           *http.Header
-	Cookies           *cookiejar.Jar
-	Auth              []string
-	Timeout           time.Duration
-	Proxies           string
-	Verify            bool
-	Cert              []string
-	Ja3               string
-	RandomJA3         bool
-	ForceHTTP1        bool
+	Params     *url.Params
+	Headers    *http.Header
+	Cookies    *cookiejar.Jar
+	Auth       []string
+	Timeout    time.Duration
+	Proxies    string
+	Verify     bool
+	Cert       []string
+	Ja3        string
+	RandomJA3  bool
+	ForceHTTP1 bool
+	// ResponseRetention 控制响应体和原始报文的保留方式。
+	ResponseRetention url.ResponseRetention
 	TLSExtensions     *http.TLSExtensions
 	HTTP2Settings     *http.HTTP2Settings
 	MaxRedirects      int
@@ -844,14 +846,33 @@ func (s *Session) storeTransportLocked(key string, tr *http.Transport) {
 
 // 构建response参数
 func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+	retention := s.ResponseRetention
+	if retention == "" {
+		retention = url.ResponseRetentionDefault
+	}
+	if req != nil && req.ResponseRetention != "" {
+		retention = req.ResponseRetention
+	}
+	if !retention.Valid() {
+		return nil, fmt.Errorf("invalid response retention %q", retention)
+	}
 	response := &models.Response{
 		Url:        preq.Url,
 		Headers:    resp.Header,
 		Cookies:    resp.Cookies(),
-		Body:       resp.Body,
 		StatusCode: resp.StatusCode,
 		History:    []*models.Response{},
 		Request:    req,
+		Retention:  retention,
+	}
+	var rawHeader []byte
+	var err error
+	if retention == url.ResponseRetentionAll {
+		rawHeader, err = httputil.DumpResponse(resp, false)
+		if err != nil {
+			resp.Body.Close()
+			return nil, err
+		}
 	}
 
 	// 更新 Cookies
@@ -860,56 +881,101 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 		s.Cookies.SetCookies(u, resp.Cookies())
 	}
 
-	// 获取 Header 部分的原始数据 (不包含 Body)
-	// DumpResponse(resp, false) 只会 Dump Header
-	rawHeader, err := httputil.DumpResponse(resp, false)
-	if err != nil {
-		return nil, err
-	}
-
 	// Stream 模式，直接返回
-	if req.Stream {
+	if req != nil && req.Stream {
+		if rawHeader == nil {
+			rawHeader, err = httputil.DumpResponse(resp, false)
+			if err != nil {
+				resp.Body.Close()
+				return nil, err
+			}
+		}
 		response.Body = resp.Body
 		response.RawResponse = rawHeader
+		response.Retention = url.ResponseRetentionBody
 		return response, nil
 	}
 
-	// 确保最后关闭原始 Body
-	defer resp.Body.Close()
-
-	// 读取原始 Body 数据 (可能是压缩的，也可能是加密的)
-	rawBodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	// BodyOnly 保持解压流，不把整个响应读入内存。
+	if retention == url.ResponseRetentionBody {
+		decompressedStream, err := DecompressBody(resp.Body, resp.Header.Get("Content-Encoding"))
+		if err != nil {
+			resp.Body.Close()
+			return nil, err
+		}
+		closers := []io.Closer{decompressedStream}
+		if decompressedStream != resp.Body {
+			closers = append(closers, resp.Body)
+		}
+		response.Body = &responseBody{Reader: decompressedStream, closers: closers}
+		return response, nil
 	}
 
-	// 拼装完整的 RawResponse (Header + RawBody)
-	// 注意：httputil.DumpResponse 返回的数据末尾通常已经包含 \r\n\r\n，但如果是 false 模式可能需要检查一下分隔符
-	// 这里直接拼接作为近似的 Wire Format
-	response.RawResponse = append(rawHeader, rawBodyBytes...)
-
-	// 处理解压逻辑
-	// 无论服务端是否压缩，我们都尝试通过 DecompressBody 处理
-	// 因为我们需要一个新的 Reader 来读取 rawBodyBytes
-	var bodyReader io.ReadCloser = io.NopCloser(bytes.NewReader(rawBodyBytes))
-
-	// 创建解压流
-	decompressedStream, err := DecompressBody(bodyReader, resp.Header.Get("Content-Encoding"))
-	if err != nil {
-		return nil, err
+	var rawBodyBytes []byte
+	var contentBytes []byte
+	if retention == url.ResponseRetentionAll {
+		// All 策略需要原始报文，因此只在明确要求时保留压缩前的字节。
+		rawBodyBytes, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		contentBytes, err = readResponseContent(rawBodyBytes, resp.Header.Get("Content-Encoding"))
+	} else {
+		// 默认和 Content 策略直接从响应流解压，避免先创建原始 Body 副本。
+		decompressedStream, decodeErr := DecompressBody(resp.Body, resp.Header.Get("Content-Encoding"))
+		if decodeErr != nil {
+			resp.Body.Close()
+			return nil, decodeErr
+		}
+		contentBytes, err = io.ReadAll(decompressedStream)
+		decompressedStream.Close()
+		resp.Body.Close()
 	}
-	defer decompressedStream.Close()
-
-	// 读取解压后的数据到 Content
-	contentBytes, err := io.ReadAll(decompressedStream)
 	if err != nil {
 		return nil, err
 	}
 
 	response.Content = contentBytes
-	// 重新填充 Body，这样用户如果习惯去 Read Body 也能读到解压后的数据
-	response.Body = io.NopCloser(bytes.NewReader(contentBytes))
+	if retention != url.ResponseRetentionContent {
+		// Body 复用 Content 的底层数组，不再复制一份响应数据。
+		response.Body = io.NopCloser(bytes.NewReader(contentBytes))
+	}
+	if retention == url.ResponseRetentionAll {
+		response.RawResponse = make([]byte, 0, len(rawHeader)+len(rawBodyBytes))
+		response.RawResponse = append(response.RawResponse, rawHeader...)
+		response.RawResponse = append(response.RawResponse, rawBodyBytes...)
+	}
 	return response, nil
+}
+
+// responseBody 关闭解压器时同时关闭底层网络响应体。
+type responseBody struct {
+	io.Reader
+	closers []io.Closer
+}
+
+func (body *responseBody) Close() error {
+	var firstErr error
+	for _, closer := range body.closers {
+		if closer == nil {
+			continue
+		}
+		if err := closer.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// readResponseContent 解压 All 策略暂存的原始响应体。
+func readResponseContent(rawBody []byte, encoding string) ([]byte, error) {
+	decompressedStream, err := DecompressBody(io.NopCloser(bytes.NewReader(rawBody)), encoding)
+	if err != nil {
+		return nil, err
+	}
+	defer decompressedStream.Close()
+	return io.ReadAll(decompressedStream)
 }
 
 const (

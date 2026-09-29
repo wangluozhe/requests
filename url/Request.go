@@ -22,6 +22,27 @@ type DataHook func(any) *Values
 type FilesHook func(any) *Files
 type BodyHook func(any) io.Reader
 
+// ResponseRetention 定义响应体的保留方式。
+type ResponseRetention string
+
+const (
+	// ResponseRetentionDefault 保留解压后的 Content 和可重复读取的 Body。
+	ResponseRetentionDefault ResponseRetention = "default"
+	// ResponseRetentionContent 只保留解压后的 Content，不创建 Body 副本。
+	ResponseRetentionContent ResponseRetention = "content"
+	// ResponseRetentionBody 只保留 Body，适合大响应的流式处理。
+	ResponseRetentionBody ResponseRetention = "body"
+	// ResponseRetentionAll 同时保留 Content、Body 和完整 RawResponse。
+	ResponseRetentionAll ResponseRetention = "all"
+)
+
+func (retention ResponseRetention) Valid() bool {
+	return retention == ResponseRetentionDefault ||
+		retention == ResponseRetentionContent ||
+		retention == ResponseRetentionBody ||
+		retention == ResponseRetentionAll
+}
+
 // Bool 返回一个指向给定 bool 值的指针，用于显式设置 Request 中的 *bool 字段。
 // 用法: req.Verify = url.Bool(false)  // 显式关闭 TLS 验证
 func Bool(v bool) *bool {
@@ -107,6 +128,8 @@ type Request struct {
 	ForceHTTP1     *bool // nil 表示使用 Session 默认值，使用 url.Bool(true/false) 显式设置
 	TLSExtensions  *http.TLSExtensions
 	HTTP2Settings  *http.HTTP2Settings
+	// ResponseRetention 控制响应体和原始报文的保留方式。
+	ResponseRetention ResponseRetention
 
 	// --- 解析中间件 (Hooks) ---
 	ParamsHook  ParamsHook

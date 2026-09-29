@@ -1,8 +1,10 @@
 package requests
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -145,5 +147,57 @@ func TestSessionTimeoutIsAppliedToRequest(t *testing.T) {
 		if !strings.Contains(message, "deadline") && !strings.Contains(message, "timeout") {
 			t.Fatalf("timeout returned unexpected error: %v", err)
 		}
+	}
+}
+
+func TestResponseRetentionStrategies(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"message":"hello"}`))
+	}))
+	defer server.Close()
+
+	tests := []struct {
+		name      string
+		retention url.ResponseRetention
+		content   bool
+		body      bool
+		raw       bool
+	}{
+		{name: "default", retention: url.ResponseRetentionDefault, content: true, body: true},
+		{name: "content", retention: url.ResponseRetentionContent, content: true},
+		{name: "body", retention: url.ResponseRetentionBody, body: true},
+		{name: "all", retention: url.ResponseRetentionAll, content: true, body: true, raw: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			session := NewSession()
+			session.ResponseRetention = test.retention
+			response, err := session.Get(server.URL, nil)
+			if err != nil {
+				t.Fatalf("request returned error: %v", err)
+			}
+			defer response.Close()
+
+			if (response.Content != nil) != test.content {
+				t.Fatalf("Content present = %t, want %t", response.Content != nil, test.content)
+			}
+			if (response.Body != nil) != test.body {
+				t.Fatalf("Body present = %t, want %t", response.Body != nil, test.body)
+			}
+			if (response.RawResponse != nil) != test.raw {
+				t.Fatalf("RawResponse present = %t, want %t", response.RawResponse != nil, test.raw)
+			}
+			if test.body {
+				body, err := io.ReadAll(response.Body)
+				if err != nil || string(body) != `{"message":"hello"}` {
+					t.Fatalf("Body = %q, error = %v", body, err)
+				}
+			}
+			if test.raw && !bytes.Contains(response.RawResponse, []byte(`{"message":"hello"}`)) {
+				t.Fatalf("RawResponse does not contain response body: %q", response.RawResponse)
+			}
+		})
 	}
 }

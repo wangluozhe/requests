@@ -434,6 +434,8 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 	if requestParams.Stream {
 		req.Stream = true
 	}
+	// C 接口历史上会返回完整 raw 字段，显式选择 All 保持该行为。
+	req.ResponseRetention = url.ResponseRetentionAll
 	return req, nil
 }
 

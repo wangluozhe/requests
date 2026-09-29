@@ -54,6 +54,8 @@ type Response struct {
 	History     []*Response
 	Request     *url.Request
 	RawResponse []byte
+	// Retention 记录构造该响应时使用的保留策略。
+	Retention url.ResponseRetention
 }
 
 // 显示关闭Response
@@ -65,6 +67,8 @@ func (res *Response) Close() error {
 		h.Close()
 	}
 	res.Content = nil
+	res.RawResponse = nil
+	res.Body = nil
 	return nil
 }
 
