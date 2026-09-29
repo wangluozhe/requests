@@ -69,6 +69,47 @@ func TestMergeSettingCreatesImmutableHTTP2Snapshot(t *testing.T) {
 	}
 }
 
+func TestSnapshotTransportSettingsIsImmutable(t *testing.T) {
+	originalTLS := &http.TLSExtensions{
+		SupportedVersions: &utls.SupportedVersionsExtension{Versions: []uint16{utls.VersionTLS13}},
+		KeyShareCurves:    &utls.KeyShareExtension{KeyShares: []utls.KeyShare{{Group: utls.X25519, Data: []byte{1, 2}}}},
+	}
+	originalHTTP2 := &http.HTTP2Settings{
+		Settings:       []http.HTTP2Setting{{ID: http.HTTP2SettingHeaderTableSize, Val: 4096}},
+		HeadersID:      0,
+		HeaderPriority: &http.HTTP2PriorityParam{StreamDep: 3, Weight: 7},
+	}
+	tlsSnapshot, http2Snapshot := snapshotTransportSettings(nil, originalTLS, nil, originalHTTP2)
+	if tlsSnapshot == originalTLS || http2Snapshot == originalHTTP2 {
+		t.Fatal("transport settings should be copied into request snapshots")
+	}
+	if http2Snapshot.HeadersID != 1 {
+		t.Fatalf("HTTP/2 HeadersID = %d, want 1", http2Snapshot.HeadersID)
+	}
+
+	originalTLS.SupportedVersions.Versions[0] = utls.VersionTLS12
+	originalTLS.KeyShareCurves.KeyShares[0].Data[0] = 9
+	originalHTTP2.Settings[0].Val = 8192
+	originalHTTP2.HeaderPriority.StreamDep = 99
+	if tlsSnapshot.SupportedVersions.Versions[0] != utls.VersionTLS13 || tlsSnapshot.KeyShareCurves.KeyShares[0].Data[0] != 1 {
+		t.Fatal("TLS snapshot shares mutable nested data with its source")
+	}
+	if http2Snapshot.Settings[0].Val != 4096 || http2Snapshot.HeaderPriority.StreamDep != 3 {
+		t.Fatal("HTTP/2 snapshot shares mutable nested data with its source")
+	}
+}
+
+func TestSnapshotTransportSettingsPrefersRequestSettings(t *testing.T) {
+	sessionTLS := &http.TLSExtensions{ClientHelloHexStream: "session"}
+	requestTLS := &http.TLSExtensions{ClientHelloHexStream: "request"}
+	sessionHTTP2 := &http.HTTP2Settings{HeadersID: 2}
+	requestHTTP2 := &http.HTTP2Settings{HeadersID: 3}
+	tlsSnapshot, http2Snapshot := snapshotTransportSettings(requestTLS, sessionTLS, requestHTTP2, sessionHTTP2)
+	if tlsSnapshot.ClientHelloHexStream != "request" || http2Snapshot.HeadersID != 3 {
+		t.Fatal("request settings should override session settings")
+	}
+}
+
 func TestTransportCacheEvictsLeastRecentlyUsed(t *testing.T) {
 	session := NewSession()
 	session.TransportCacheLimit = 2

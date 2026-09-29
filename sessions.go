@@ -248,6 +248,23 @@ func cloneHTTP2Settings(settings *http.HTTP2Settings) *http.HTTP2Settings {
 	return &clone
 }
 
+// snapshotTransportSettings 在请求开始时复制 TLS 和 HTTP/2 配置，后续请求流程只读取快照。
+func snapshotTransportSettings(requestTLS *http.TLSExtensions, sessionTLS *http.TLSExtensions, requestHTTP2 *http.HTTP2Settings, sessionHTTP2 *http.HTTP2Settings) (*http.TLSExtensions, *http.HTTP2Settings) {
+	if requestTLS == nil {
+		requestTLS = sessionTLS
+	}
+	tlsSnapshot := cloneTLSExtensions(requestTLS)
+
+	if requestHTTP2 == nil {
+		requestHTTP2 = sessionHTTP2
+	}
+	http2Snapshot := cloneHTTP2Settings(requestHTTP2)
+	if http2Snapshot != nil && http2Snapshot.HeadersID == 0 {
+		http2Snapshot.HeadersID = 1
+	}
+	return tlsSnapshot, http2Snapshot
+}
+
 // 禁用redirect
 var disableRedirect = func(request *http.Request, via []*http.Request) error {
 	return http.ErrUseLastResponse
@@ -513,17 +530,8 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	randomJA3 := *merge_setting(req.RandomJA3, Bool(s.RandomJA3)).(*bool)
 	// 设置强制http1
 	forceHTTP1 := *merge_setting(req.ForceHTTP1, Bool(s.ForceHTTP1)).(*bool)
-	// 设置tls
-	// 这里只选择配置来源，不提前复制；Transport 缓存命中时不会使用配置指针。
-	tlsExtensions := req.TLSExtensions
-	if tlsExtensions == nil {
-		tlsExtensions = s.TLSExtensions
-	}
-	// 设置http2
-	http2Settings := req.HTTP2Settings
-	if http2Settings == nil {
-		http2Settings = s.HTTP2Settings
-	}
+	// 请求开始时固定 TLS 和 HTTP/2 配置快照，避免缓存键与 Transport 创建读取不同状态。
+	tlsExtensions, http2Settings := snapshotTransportSettings(req.TLSExtensions, s.TLSExtensions, req.HTTP2Settings, s.HTTP2Settings)
 
 	// --- 缓存逻辑开始 ---
 
@@ -559,13 +567,6 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 		if tr, found := s.cachedTransportLocked(cacheKey); found {
 			return tr, nil
-		}
-
-		// 只有缓存未命中时才创建快照，避免每个缓存命中请求重复分配。
-		tlsExtensions = cloneTLSExtensions(tlsExtensions)
-		http2Settings = cloneHTTP2Settings(http2Settings)
-		if http2Settings != nil && http2Settings.HeadersID == 0 {
-			http2Settings.HeadersID = 1
 		}
 
 		// 缓存未命中，创建新的 Transport
