@@ -416,7 +416,10 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 		if err != nil {
 			return nil, err
 		}
-		req.TLSExtensions = ja3.ToTLSExtensions(tlsExtensions)
+		req.TLSExtensions, err = ja3.ToTLSExtensionsChecked(tlsExtensions)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if requestParams.HTTP2Settings != "" {

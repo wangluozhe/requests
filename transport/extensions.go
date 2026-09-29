@@ -1,15 +1,13 @@
 package transport
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	utls "github.com/refraction-networking/utls"
 	http "github.com/wangluozhe/chttp"
 )
-
-var mutex = &sync.RWMutex{}
 
 var supportedSignatureAlgorithmsExtensions = map[string]utls.SignatureScheme{
 	"PKCS1WithSHA256":                     utls.PKCS1WithSHA256,
@@ -160,108 +158,123 @@ type Extensions struct {
 	ClientHelloHexStream string `json:"ClientHelloHexStream"`
 }
 
-func ToTLSExtensions(e *Extensions) (extensions *http.TLSExtensions) {
-	extensions = &http.TLSExtensions{}
+func parseSignatureScheme(value string) (utls.SignatureScheme, error) {
+	if parsed, ok := supportedSignatureAlgorithmsExtensions[value]; ok {
+		return parsed, nil
+	}
+	raw := strings.TrimPrefix(strings.TrimPrefix(value, "0x"), "0X")
+	parsed, err := strconv.ParseUint(raw, 16, 16)
+	if err != nil || parsed == 0 {
+		return 0, fmt.Errorf("unknown signature algorithm %q", value)
+	}
+	return utls.SignatureScheme(parsed), nil
+}
+
+func parseKeyShareCurve(value string) (utls.KeyShare, error) {
+	if parsed, ok := keyShareCurvesExtensions[value]; ok {
+		return parsed, nil
+	}
+	curveID, err := strconv.ParseUint(value, 10, 16)
+	if err != nil || curveID == 0 {
+		return utls.KeyShare{}, fmt.Errorf("unknown key share curve %q", value)
+	}
+	return utls.KeyShare{Group: utls.CurveID(curveID), Data: []byte{0}}, nil
+}
+
+func appendSignatureAlgorithms(dst *[]utls.SignatureScheme, values []string, field string) error {
+	for index, value := range values {
+		parsed, err := parseSignatureScheme(value)
+		if err != nil {
+			return fmt.Errorf("invalid %s[%d]: %w", field, index, err)
+		}
+		*dst = append(*dst, parsed)
+	}
+	return nil
+}
+
+// ToTLSExtensionsChecked 将 TLS 扩展配置转换为经过校验的运行时配置。
+func ToTLSExtensionsChecked(e *Extensions) (*http.TLSExtensions, error) {
+	extensions := &http.TLSExtensions{}
 	if e == nil {
-		return extensions
+		return extensions, nil
 	}
 	if e.ClientHelloHexStream != "" {
 		extensions.ClientHelloHexStream = e.ClientHelloHexStream
-		return extensions
+		return extensions, nil
+	}
+	if e.RecordSizeLimit != 0 && (e.RecordSizeLimit < 64 || e.RecordSizeLimit > 16384) {
+		return nil, fmt.Errorf("invalid RecordSizeLimit %d: must be between 64 and 16384", e.RecordSizeLimit)
 	}
 	if e.SupportedSignatureAlgorithms != nil {
-		extensions.SupportedSignatureAlgorithms = &utls.SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
-		mutex.RLock()
-		for _, s := range e.SupportedSignatureAlgorithms {
-			var signature_algorithms utls.SignatureScheme
-			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
-				signature_algorithms = val
-			} else {
-				s = strings.TrimPrefix(s, "0x")
-				hexInt, _ := strconv.ParseInt(s, 16, 0)
-				signature_algorithms = utls.SignatureScheme(hexInt)
-			}
-			extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms = append(extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms, signature_algorithms)
+		extensions.SupportedSignatureAlgorithms = &utls.SignatureAlgorithmsExtension{}
+		if err := appendSignatureAlgorithms(&extensions.SupportedSignatureAlgorithms.SupportedSignatureAlgorithms, e.SupportedSignatureAlgorithms, "SupportedSignatureAlgorithms"); err != nil {
+			return nil, err
 		}
-		mutex.RUnlock()
 	}
 	if e.CertCompressionAlgo != nil {
-		extensions.CertCompressionAlgo = &utls.UtlsCompressCertExtension{Algorithms: []utls.CertCompressionAlgo{}}
-		mutex.RLock()
-		for _, s := range e.CertCompressionAlgo {
-			extensions.CertCompressionAlgo.Algorithms = append(extensions.CertCompressionAlgo.Algorithms, certCompressionAlgoExtensions[s])
+		extensions.CertCompressionAlgo = &utls.UtlsCompressCertExtension{}
+		for index, value := range e.CertCompressionAlgo {
+			parsed, ok := certCompressionAlgoExtensions[value]
+			if !ok {
+				return nil, fmt.Errorf("invalid CertCompressionAlgo[%d]: unknown value %q", index, value)
+			}
+			extensions.CertCompressionAlgo.Algorithms = append(extensions.CertCompressionAlgo.Algorithms, parsed)
 		}
-		mutex.RUnlock()
 	}
 	if e.RecordSizeLimit != 0 {
-		extensions.RecordSizeLimit = &utls.FakeRecordSizeLimitExtension{uint16(e.RecordSizeLimit)}
+		extensions.RecordSizeLimit = &utls.FakeRecordSizeLimitExtension{Limit: uint16(e.RecordSizeLimit)}
 	}
 	if e.DelegatedCredentials != nil {
-		extensions.DelegatedCredentials = &utls.DelegatedCredentialsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
-		mutex.RLock()
-		for _, s := range e.DelegatedCredentials {
-			var signature_algorithms utls.SignatureScheme
-			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
-				signature_algorithms = val
-			} else {
-				s = strings.TrimPrefix(s, "0x")
-				hexInt, _ := strconv.ParseInt(s, 16, 0)
-				signature_algorithms = utls.SignatureScheme(hexInt)
-			}
-			extensions.DelegatedCredentials.SupportedSignatureAlgorithms = append(extensions.DelegatedCredentials.SupportedSignatureAlgorithms, signature_algorithms)
+		extensions.DelegatedCredentials = &utls.DelegatedCredentialsExtension{}
+		if err := appendSignatureAlgorithms(&extensions.DelegatedCredentials.SupportedSignatureAlgorithms, e.DelegatedCredentials, "DelegatedCredentials"); err != nil {
+			return nil, err
 		}
-		mutex.RUnlock()
 	}
 	if e.SupportedVersions != nil {
-		extensions.SupportedVersions = &utls.SupportedVersionsExtension{Versions: []uint16{}}
-		mutex.RLock()
-		for _, s := range e.SupportedVersions {
-			extensions.SupportedVersions.Versions = append(extensions.SupportedVersions.Versions, supportedVersionsExtensions[s])
+		extensions.SupportedVersions = &utls.SupportedVersionsExtension{}
+		for index, value := range e.SupportedVersions {
+			parsed, ok := supportedVersionsExtensions[value]
+			if !ok {
+				return nil, fmt.Errorf("invalid SupportedVersions[%d]: unknown value %q", index, value)
+			}
+			extensions.SupportedVersions.Versions = append(extensions.SupportedVersions.Versions, parsed)
 		}
-		mutex.RUnlock()
 	}
 	if e.PSKKeyExchangeModes != nil {
-		extensions.PSKKeyExchangeModes = &utls.PSKKeyExchangeModesExtension{Modes: []uint8{}}
-		mutex.RLock()
-		for _, s := range e.PSKKeyExchangeModes {
-			extensions.PSKKeyExchangeModes.Modes = append(extensions.PSKKeyExchangeModes.Modes, pskKeyExchangeModesExtensions[s])
+		extensions.PSKKeyExchangeModes = &utls.PSKKeyExchangeModesExtension{}
+		for index, value := range e.PSKKeyExchangeModes {
+			parsed, ok := pskKeyExchangeModesExtensions[value]
+			if !ok {
+				return nil, fmt.Errorf("invalid PSKKeyExchangeModes[%d]: unknown value %q", index, value)
+			}
+			extensions.PSKKeyExchangeModes.Modes = append(extensions.PSKKeyExchangeModes.Modes, parsed)
 		}
-		mutex.RUnlock()
 	}
 	if e.SignatureAlgorithmsCert != nil {
-		extensions.SignatureAlgorithmsCert = &utls.SignatureAlgorithmsCertExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{}}
-		mutex.RLock()
-		for _, s := range e.SignatureAlgorithmsCert {
-			var signature_algorithms_cert utls.SignatureScheme
-			if val, ok := supportedSignatureAlgorithmsExtensions[s]; ok {
-				signature_algorithms_cert = val
-			} else {
-				s = strings.TrimPrefix(s, "0x")
-				hexInt, _ := strconv.ParseInt(s, 16, 0)
-				signature_algorithms_cert = utls.SignatureScheme(hexInt)
-			}
-			extensions.SignatureAlgorithmsCert.SupportedSignatureAlgorithms = append(extensions.SignatureAlgorithmsCert.SupportedSignatureAlgorithms, signature_algorithms_cert)
+		extensions.SignatureAlgorithmsCert = &utls.SignatureAlgorithmsCertExtension{}
+		if err := appendSignatureAlgorithms(&extensions.SignatureAlgorithmsCert.SupportedSignatureAlgorithms, e.SignatureAlgorithmsCert, "SignatureAlgorithmsCert"); err != nil {
+			return nil, err
 		}
-		mutex.RUnlock()
 	}
 	if e.KeyShareCurves != nil {
-		extensions.KeyShareCurves = &utls.KeyShareExtension{KeyShares: []utls.KeyShare{}}
-		mutex.RLock()
-		for _, s := range e.KeyShareCurves {
-			if val, ok := keyShareCurvesExtensions[s]; ok {
-				extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, val)
-			} else {
-				curveID, err := strconv.ParseInt(s, 10, 16)
-				if err != nil {
-					continue
-				}
-				extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, utls.KeyShare{Group: utls.CurveID(curveID), Data: []byte{0}})
+		extensions.KeyShareCurves = &utls.KeyShareExtension{}
+		for index, value := range e.KeyShareCurves {
+			parsed, err := parseKeyShareCurve(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid KeyShareCurves[%d]: %w", index, err)
 			}
+			extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, parsed)
 		}
-		mutex.RUnlock()
 	}
-	if e.NotUsedGREASE != false {
-		extensions.NotUsedGREASE = e.NotUsedGREASE
+	extensions.NotUsedGREASE = e.NotUsedGREASE
+	return extensions, nil
+}
+
+// ToTLSExtensions 保留原有 API，非法输入时返回空扩展配置。
+func ToTLSExtensions(e *Extensions) *http.TLSExtensions {
+	extensions, err := ToTLSExtensionsChecked(e)
+	if err != nil {
+		return &http.TLSExtensions{}
 	}
 	return extensions
 }
