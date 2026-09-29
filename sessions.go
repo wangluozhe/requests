@@ -876,10 +876,20 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 		}
 	}
 
-	// 更新 Cookies
-	if resp.Cookies() != nil {
-		u, _ := url2.Parse(preq.Url)
-		s.Cookies.SetCookies(u, resp.Cookies())
+	// 更新 Cookies；URL 解析失败时不能向 Cookie Jar 传入无效 URL。
+	responseCookies := resp.Cookies()
+	if len(responseCookies) > 0 {
+		u, parseErr := url2.Parse(preq.Url)
+		if parseErr != nil || u == nil {
+			if resp.Body != nil {
+				_ = resp.Body.Close()
+			}
+			if parseErr != nil {
+				return nil, fmt.Errorf("parse response cookie URL %q: %w", preq.Url, parseErr)
+			}
+			return nil, fmt.Errorf("parse response cookie URL %q: empty URL", preq.Url)
+		}
+		s.Cookies.SetCookies(u, responseCookies)
 	}
 
 	// Stream 模式，直接返回

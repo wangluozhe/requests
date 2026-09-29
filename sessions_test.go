@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	chttp "github.com/wangluozhe/chttp"
+	"github.com/wangluozhe/requests/models"
 	"github.com/wangluozhe/requests/url"
 )
 
@@ -120,6 +122,27 @@ func TestSessionRejectsInvalidJA3Format(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "invalid JA3 format") {
 		t.Fatalf("invalid JA3 configuration returned unexpected error: %v", err)
+	}
+}
+
+func TestBuildResponseRejectsInvalidCookieURL(t *testing.T) {
+	session := NewSession()
+	preq := &models.PrepareRequest{Url: "http://bad%2fhost/path"}
+	resp := &chttp.Response{
+		StatusCode: 200,
+		Header:     chttp.Header{"Set-Cookie": []string{"session=value; Path=/"}},
+		Body:       io.NopCloser(strings.NewReader("body")),
+	}
+
+	response, err := session.buildResponse(resp, preq, nil)
+	if err == nil {
+		if response != nil {
+			_ = response.Close()
+		}
+		t.Fatal("invalid cookie URL unexpectedly succeeded")
+	}
+	if response != nil {
+		t.Fatalf("invalid cookie URL returned response: %#v", response)
 	}
 }
 
