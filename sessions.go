@@ -495,6 +495,10 @@ func (s *Session) Trace(rawurl string, req *url.Request) (*models.Response, erro
 
 // 发送数据
 func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+	// 在创建 Transport 或发送请求前拒绝非法策略，避免请求已执行后才报配置错误。
+	if _, err := s.responseRetention(req); err != nil {
+		return nil, err
+	}
 	var err error
 	var history []*models.Response
 
@@ -822,8 +826,8 @@ func (s *Session) storeTransportLocked(key string, tr *http.Transport) {
 	s.transportLRUIndex[key] = s.transportLRU.PushFront(key)
 }
 
-// 构建response参数
-func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+// responseRetention 按请求、Session、默认值的优先级选择并校验响应保留策略。
+func (s *Session) responseRetention(req *url.Request) (url.ResponseRetention, error) {
 	retention := s.ResponseRetention
 	if retention == "" {
 		retention = url.ResponseRetentionDefault
@@ -832,7 +836,20 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 		retention = req.ResponseRetention
 	}
 	if !retention.Valid() {
-		return nil, fmt.Errorf("invalid response retention %q", retention)
+		return "", fmt.Errorf("invalid response retention %q", retention)
+	}
+	return retention, nil
+}
+
+// 构建response参数
+func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest, req *url.Request) (*models.Response, error) {
+	retention, err := s.responseRetention(req)
+	if err != nil {
+		// 即使已有响应，校验失败也必须释放 Body，不把关闭责任留给拿不到响应的调用方。
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		return nil, err
 	}
 	response := &models.Response{
 		Url:        preq.Url,
@@ -844,7 +861,6 @@ func (s *Session) buildResponse(resp *http.Response, preq *models.PrepareRequest
 		Retention:  retention,
 	}
 	var rawHeader []byte
-	var err error
 	if retention == url.ResponseRetentionAll {
 		rawHeader, err = httputil.DumpResponse(resp, false)
 		if err != nil {
