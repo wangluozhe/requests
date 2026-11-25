@@ -26,7 +26,6 @@ import (
 	"github.com/wangluozhe/chttp/httputil"
 	"github.com/wangluozhe/requests/models"
 	"github.com/wangluozhe/requests/url"
-	"github.com/wangluozhe/requests/utils"
 )
 
 // Handler 定义处理请求的函数类型
@@ -50,38 +49,6 @@ func default_headers() *http.Header {
 	headers := url.NewHeaders()
 	headers.Set("User-Agent", default_user_agent())
 	return headers
-}
-
-// 合并cookies
-func merge_cookies(rawurl string, cookieJar *cookiejar.Jar, cookie *cookiejar.Jar) {
-	// 防止因为传入 nil 对象导致程序崩溃
-	if cookieJar == nil || cookie == nil {
-		return
-	}
-	urls, err := url2.Parse(utils.EncodeURI(rawurl))
-	if err != nil || urls == nil {
-		return
-	}
-
-	// cookieJar的name表
-	var cookieJarNames = make(map[string]struct{})
-	for _, c := range cookieJar.Cookies(urls) {
-		cookieJarNames[c.Name] = struct{}{}
-	}
-
-	var newCookies []*http.Cookie
-
-	// 检查目标 cookieJar 中是否已存在相同name，存在则不更新
-	for _, c := range cookie.Cookies(urls) {
-		if _, exists := cookieJarNames[c.Name]; !exists {
-			newCookies = append(newCookies, c)
-		}
-	}
-
-	// 如果列表不为空才执行设置操作
-	if len(newCookies) > 0 {
-		cookieJar.SetCookies(urls, newCookies)
-	}
 }
 
 // 合并参数
@@ -423,13 +390,7 @@ func (s *Session) Prepare_request(request *models.Request) (*models.PrepareReque
 	}
 	s_h := s.Headers.Clone()
 	headers := merge_setting(&h, &s_h).(*http.Header)
-	c := request.Cookies
-	if c == nil {
-		c, _ = cookiejar.New(nil)
-	}
-	cookies, _ := cookiejar.New(nil)
-	merge_cookies(request.Url, cookies, c)
-	merge_cookies(request.Url, cookies, s.Cookies)
+	// 保留请求 Cookie 的完整作用域；Send 按每一跳的 URL 合并 Session Cookie。
 	auth := merge_setting(request.Auth, s.Auth).([]string)
 	p := models.NewPrepareRequest()
 	err = p.Prepare(
@@ -437,7 +398,7 @@ func (s *Session) Prepare_request(request *models.Request) (*models.PrepareReque
 		request.Url,
 		params,
 		headers,
-		cookies,
+		request.Cookies,
 		request.Data,
 		request.Files,
 		request.Json,
@@ -707,46 +668,29 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		allowRedirects = *req.AllowRedirects
 	}
 	if allowRedirects {
-		if client.CheckRedirect == nil {
-			client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
-				if len(via) > s.MaxRedirects {
-					return fmt.Errorf("redirects number gt %d", s.MaxRedirects)
-				}
-				if request != nil {
-					preq.Url = request.URL.String()
-					p := models.NewPrepareRequest()
-					c, _ := cookiejar.New(nil)
-					c.SetCookies(request.URL, request.Cookies())
-					p.Prepare(request.Method, request.URL.String(), nil, &request.Header, c, nil, nil, nil, nil, nil)
-					r, err := s.buildResponse(request.Response, p, &url.Request{})
-					if err != nil {
-						return err
-					}
-					history = append(history, r)
-				}
-				// 获取上一次请求的Cookies
-				var cookies []*http.Cookie
-				lastReq := via[len(via)-1]
-				if lastReq.Response != nil {
-					cookies = lastReq.Response.Cookies()
-				}
-
-				// 将上一次请求的Cookies与当前请求的Cookies合并
-				reqCookies := append(cookies, request.Cookies()...)
-
-				// 设置合并后的Cookies到重定向请求的Header中
-				for _, cookie := range reqCookies {
-					request.AddCookie(cookie)
-				}
-				return nil
+		client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+			if len(via) > s.MaxRedirects {
+				return fmt.Errorf("redirects number gt %d", s.MaxRedirects)
 			}
+			// request.Response 属于上一跳，Cookie 和 History 必须使用产生响应的 URL。
+			previous := &models.PrepareRequest{Url: via[len(via)-1].URL.String()}
+			r, err := s.buildResponse(request.Response, previous, &url.Request{})
+			if err != nil {
+				return err
+			}
+			history = append(history, r)
+			preq.Url = request.URL.String()
+			// 与 Python requests 一致，重定向时从 Jar 重建 Cookie，不沿用手写 Header。
+			for name := range request.Header {
+				if strings.EqualFold(name, "Cookie") {
+					delete(request.Header, name)
+				}
+			}
+			return nil
 		}
 	} else {
 		client.CheckRedirect = disableRedirect
 	}
-
-	// 设置cookies
-	client.Jar = preq.Cookies
 
 	// 设置有序请求头
 	if req.Headers != nil {
@@ -775,6 +719,15 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	}
 
 	request.Header = preq.Headers.Clone()
+	hasCookieHeader := false
+	for name := range request.Header {
+		if strings.EqualFold(name, "Cookie") {
+			hasCookieHeader = true
+			break
+		}
+	}
+	// 首次请求尊重显式 Cookie Header；后续请求由 Jar 按完整作用域选择 Cookie。
+	client.Jar = newRequestCookieJar(s.Cookies, preq.Cookies, hasCookieHeader)
 
 	// ================= START DEBUG LOGIC =================
 	var debugID string
