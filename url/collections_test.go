@@ -166,7 +166,7 @@ func TestCollectionsOrderAndZeroValues(t *testing.T) {
 			}
 		})
 	}
-	if got := ParseParams("b=x%20y&a=&b=z").Clone().Encode(); got != "b=x+y&b=z&a=" {
+	if got := ParseParams("b=x%20y&a=&b=z").Clone().Encode(); got != "b=x%20y&b=z&a" {
 		t.Fatalf("Params encoding changed: %s", got)
 	}
 	if got := ParseValues("b=x y&a=&b=z&c=1=2").Clone().Encode(); got != "b=x%20y&b=z&a=&c=1%3D2" {
@@ -180,12 +180,12 @@ func TestCollectionsOrderAndZeroValues(t *testing.T) {
 	}
 }
 
-func TestParamsEncodeEscapesQueryComponents(t *testing.T) {
+func TestParamsPreservesCallerEncoding(t *testing.T) {
 	params := NewParams()
-	params.Add("a b&c", "x&y=z 中文")
+	params.Add(neturl.QueryEscape("a b&c"), neturl.QueryEscape("x&y=z 中文"))
 	params.Add("empty", "")
 
-	const want = "a+b%26c=x%26y%3Dz+%E4%B8%AD%E6%96%87&empty="
+	const want = "a+b%26c=x%26y%3Dz+%E4%B8%AD%E6%96%87&empty"
 	if got := params.Encode(); got != want {
 		t.Fatalf("Params.Encode() = %q, want %q", got, want)
 	}
@@ -199,6 +199,28 @@ func TestParamsEncodeEscapesQueryComponents(t *testing.T) {
 	}
 	if got := parsed.Get("empty"); got != "" {
 		t.Fatalf("decoded empty value = %q, want empty", got)
+	}
+}
+
+func TestParseParamsPreservesEncodedComponents(t *testing.T) {
+	const encoded = "a%20b%26c=x%20y%3dz%2b%25&plus=a+b&empty="
+	params := ParseParams(encoded)
+	if got := params.Get("a%20b%26c"); got != "x%20y%3dz%2b%25" {
+		t.Fatalf("ParseParams decoded a key or value: %q", got)
+	}
+	if got := params.Get("plus"); got != "a+b" {
+		t.Fatalf("ParseParams decoded a plus sign: %q", got)
+	}
+	if got := params.Clone().Encode(); got != "a%20b%26c=x%20y%3dz%2b%25&plus=a+b&empty" {
+		t.Fatalf("encoded query changed: %q", got)
+	}
+}
+
+func TestParamsDoesNotAutomaticallyEscape(t *testing.T) {
+	params := NewParams()
+	params.Set("q", "a b&c=中文%")
+	if got := params.Encode(); got != "q=a b&c=中文%" {
+		t.Fatalf("Params changed the legacy raw concatenation behavior: %q", got)
 	}
 }
 

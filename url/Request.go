@@ -58,6 +58,7 @@ func NewRequest() *Request {
 // Request 配置请求参数的结构体
 type Request struct {
 	// Params 设置 URL 查询参数.
+	// 与旧版一致，键和值中的特殊字符需要调用方预先编码；库只原样拼接。
 	// 支持的类型 (Accepted types):
 	//   - *url.Params
 	//   - string (e.g. "key=value&a=1")

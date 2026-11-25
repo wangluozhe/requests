@@ -1,7 +1,6 @@
 package url
 
 import (
-	neturl "net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +16,7 @@ func SearchStrings(str []string, substr string) int {
 	return -1
 }
 
-// 解析params字符串为Params结构体
+// ParseParams 解析查询参数；字符串中的键和值保持原样，不进行百分号解码。
 func ParseParams(params interface{}) *Params {
 	p := NewParams()
 	switch v := params.(type) {
@@ -28,9 +27,9 @@ func ParseParams(params interface{}) *Params {
 		for _, l := range strings.Split(v, "&") {
 			value := strings.SplitN(l, "=", 2)
 			if len(value) == 2 {
-				p.Add(decodeQueryComponent(value[0]), decodeQueryComponent(value[1]))
+				p.Add(value[0], value[1])
 			} else if len(value) == 1 && value[0] != "" {
-				p.Add(decodeQueryComponent(value[0]), "")
+				p.Add(value[0], "")
 			}
 		}
 	case map[string]string:
@@ -105,14 +104,6 @@ func ParseParams(params interface{}) *Params {
 	return p
 }
 
-func decodeQueryComponent(value string) string {
-	decoded, err := neturl.QueryUnescape(value)
-	if err != nil {
-		return value
-	}
-	return decoded
-}
-
 // 初始化Params结构体
 func NewParams() *Params {
 	return &Params{values: make(map[string][]string)}
@@ -179,14 +170,19 @@ func (p *Params) Keys() []string {
 	return append([]string(nil), p.indexKey...)
 }
 
-// Params结构体转字符串
+// Encode 按插入顺序原样拼接查询参数，空值只输出键名，与旧版行为一致。
+// 键和值中的特殊字符应由调用方预先编码，本方法不进行百分号编码。
 func (p *Params) Encode() string {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	var text []string
 	for _, key := range p.indexKey {
 		for _, value := range p.values[key] {
-			text = append(text, neturl.QueryEscape(key)+"="+neturl.QueryEscape(value))
+			if value == "" {
+				text = append(text, key)
+			} else {
+				text = append(text, key+"="+value)
+			}
 		}
 	}
 	return strings.Join(text, "&")
