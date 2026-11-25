@@ -625,7 +625,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 				tr.UserAgent = s.Headers.Get("User-Agent")
 				tr.RandomJA3 = randomJA3
 				tr.ForceHTTP1 = forceHTTP1
-				// 自定义TLS指纹信息
+				// chttp 根据 HTTP2Settings 应用指纹配置及 MAX_FRAME_SIZE 接收帧限制。
 				h2.HTTP2Settings = http2Settings
 				if http2Settings != nil {
 					if http2Settings.Settings != nil {
@@ -636,8 +636,6 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 								h2.MaxDecoderHeaderTableSize = setting.Val
 							case http.HTTP2SettingMaxConcurrentStreams:
 								h2.StrictMaxConcurrentStreams = true
-							case http.HTTP2SettingMaxFrameSize:
-								h2.MaxReadFrameSize = setting.Val
 							case http.HTTP2SettingMaxHeaderListSize:
 								h2.MaxHeaderListSize = setting.Val
 							}
