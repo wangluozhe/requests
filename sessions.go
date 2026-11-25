@@ -580,7 +580,6 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 		// 缓存未命中，创建新的 Transport
 		tr := s.transport.Clone() // 从会话的基础 transport 克隆
-		tr.TLSClientConfig = s.transport.TLSClientConfig.Clone()
 
 		if proxies != "" {
 			u1, err := url2.Parse(proxies)
@@ -617,50 +616,36 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 			tr.TLSClientConfig.Certificates = []utls.Certificate{certs}
 		}
 
-		if ja3String != "" && strings.HasPrefix(preq.Url, "https") && tr.H2Transport == nil {
-			if tr.TLSClientConfig.ClientSessionCache == nil {
-				tr.TLSClientConfig.ClientSessionCache = utls.NewLRUClientSessionCache(0)
+		// 在缓存发布前统一配置，首次 HTTP 请求及其 HTTPS 重定向也必须使用同一套配置。
+		tr.JA3 = ja3String
+		tr.UserAgent = s.Headers.Get("User-Agent")
+		tr.RandomJA3 = randomJA3
+		tr.ForceHTTP1 = forceHTTP1
+		tr.TLSExtensions = tlsExtensions
+
+		// 显式指纹或 HTTP/2 配置需要准备 HTTP/2；无配置时保留基础 Transport 的协议策略。
+		hasClientHello := tlsExtensions != nil && tlsExtensions.ClientHelloHexStream != ""
+		needsHTTP2 := ja3String != "" || hasClientHello || http2Settings != nil || tr.H2Transport != nil
+		if !forceHTTP1 && needsHTTP2 {
+			h2, err := http.HTTP2ConfigureTransports(tr)
+			if err != nil {
+				return nil, fmt.Errorf("configure HTTP/2 transport: %w", err)
 			}
-			if tr.TLSClientConfig.OmitEmptyPsk == false {
-				tr.TLSClientConfig.OmitEmptyPsk = true
-			}
-			if strings.Contains(strings.Split(ja3String, ",")[2], "-41") {
-				tr.TLSClientConfig.SessionTicketsDisabled = false
-			}
-			if tr.H2Transport == nil {
-				var h2 *http.HTTP2Transport
-				h2, _ = http.HTTP2ConfigureTransports(tr)
-				tr.JA3 = ja3String
-				tr.UserAgent = s.Headers.Get("User-Agent")
-				tr.RandomJA3 = randomJA3
-				tr.ForceHTTP1 = forceHTTP1
-				// chttp 根据 HTTP2Settings 应用指纹配置及 MAX_FRAME_SIZE 接收帧限制。
-				h2.HTTP2Settings = http2Settings
-				if http2Settings != nil {
-					if http2Settings.Settings != nil {
-						for _, setting := range http2Settings.Settings {
-							switch setting.ID {
-							case http.HTTP2SettingHeaderTableSize:
-								h2.MaxEncoderHeaderTableSize = setting.Val
-								h2.MaxDecoderHeaderTableSize = setting.Val
-							case http.HTTP2SettingMaxConcurrentStreams:
-								h2.StrictMaxConcurrentStreams = true
-							case http.HTTP2SettingMaxHeaderListSize:
-								h2.MaxHeaderListSize = setting.Val
-							}
-						}
+			// chttp 根据 HTTP2Settings 应用指纹配置及 MAX_FRAME_SIZE 接收帧限制。
+			h2.HTTP2Settings = http2Settings
+			if http2Settings != nil {
+				for _, setting := range http2Settings.Settings {
+					switch setting.ID {
+					case http.HTTP2SettingHeaderTableSize:
+						h2.MaxEncoderHeaderTableSize = setting.Val
+						h2.MaxDecoderHeaderTableSize = setting.Val
+					case http.HTTP2SettingMaxConcurrentStreams:
+						h2.StrictMaxConcurrentStreams = true
+					case http.HTTP2SettingMaxHeaderListSize:
+						h2.MaxHeaderListSize = setting.Val
 					}
 				}
-				tr.TLSExtensions = tlsExtensions
-				tr.H2Transport = h2
 			}
-		} else if ja3String != "" && strings.HasPrefix(preq.Url, "https") && tr.H2Transport != nil {
-			tr.JA3 = ja3String
-			tr.UserAgent = s.Headers.Get("User-Agent")
-			tr.RandomJA3 = randomJA3
-			tr.ForceHTTP1 = forceHTTP1
-			tr.TLSExtensions = tlsExtensions
-			tr.H2Transport.(*http.HTTP2Transport).HTTP2Settings = http2Settings
 		}
 
 		if disableKeepAlives {
