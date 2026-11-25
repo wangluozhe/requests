@@ -1,9 +1,11 @@
 package requests
 
 import (
+	"bufio"
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"compress/zlib"
 	"container/list"
 	"crypto/x509"
 	"fmt"
@@ -1280,7 +1282,16 @@ func DecompressBody(body io.ReadCloser, encoding string) (io.ReadCloser, error) 
 		return r, nil // gzip.Reader 自动处理流式解压
 
 	case "deflate":
-		return flate.NewReader(body), nil // flate.Reader 直接返回流式接口
+		reader := bufio.NewReader(body)
+		header, _ := reader.Peek(2)
+		// RFC 1950：DEFLATE 方法、窗口大小和头部校验均有效时按 zlib 解码。
+		// 确认格式后保留截断、字典和校验和错误，不再回退而掩盖损坏的数据。
+		if len(header) == 2 && header[0]&0x0f == 8 && header[0]>>4 <= 7 &&
+			(uint16(header[0])<<8|uint16(header[1]))%31 == 0 {
+			return zlib.NewReader(reader)
+		}
+		// Peek 不消耗字节；兼容原始 DEFLATE，短流及读取错误由解码器返回。
+		return flate.NewReader(reader), nil
 
 	case "br":
 		return io.NopCloser(brotli.NewReader(body)), nil // brotli.Reader 实现 io.Reader 接口
