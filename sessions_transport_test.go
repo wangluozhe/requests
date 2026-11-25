@@ -110,6 +110,71 @@ func TestSnapshotTransportSettingsPrefersRequestSettings(t *testing.T) {
 	}
 }
 
+func TestTrustAnchorsSnapshotPreservesValuesAndOwnership(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		ext  *utls.TrustAnchorsExtension
+	}{
+		{"absent", nil},
+		{"nil list", &utls.TrustAnchorsExtension{}},
+		{"empty list", &utls.TrustAnchorsExtension{TrustAnchorIDs: [][]byte{}}},
+		{"custom IDs", &utls.TrustAnchorsExtension{TrustAnchorIDs: [][]byte{{1, 2}, {3, 4}}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			original := &http.TLSExtensions{TrustAnchors: test.ext}
+			snapshot, _ := snapshotTransportSettings(original, nil, nil, nil)
+			if !reflect.DeepEqual(snapshot.TrustAnchors, original.TrustAnchors) {
+				t.Fatalf("TrustAnchors snapshot = %#v, want %#v", snapshot.TrustAnchors, original.TrustAnchors)
+			}
+			if original.TrustAnchors == nil {
+				return
+			}
+			if snapshot.TrustAnchors == original.TrustAnchors {
+				t.Fatal("snapshot shares the TrustAnchors extension pointer")
+			}
+			if len(original.TrustAnchors.TrustAnchorIDs) == 0 {
+				return
+			}
+			original.TrustAnchors.TrustAnchorIDs[0][0] = 9
+			original.TrustAnchors.TrustAnchorIDs[1] = []byte{8}
+			if !reflect.DeepEqual(snapshot.TrustAnchors.TrustAnchorIDs, [][]byte{{1, 2}, {3, 4}}) {
+				t.Fatal("snapshot shares nested TrustAnchorIDs data with its source")
+			}
+			snapshot.TrustAnchors.TrustAnchorIDs[0][1] = 7
+			snapshot.TrustAnchors.TrustAnchorIDs[1] = []byte{6}
+			if !reflect.DeepEqual(original.TrustAnchors.TrustAnchorIDs, [][]byte{{9, 2}, {8}}) {
+				t.Fatal("source changed through the snapshot")
+			}
+		})
+	}
+}
+
+func TestTrustAnchorsHashDistinguishesEffectiveConfigurations(t *testing.T) {
+	seen := make(map[string]string)
+	for _, test := range []struct {
+		name string
+		ext  *utls.TrustAnchorsExtension
+	}{
+		{"absent", nil},
+		{"empty", &utls.TrustAnchorsExtension{}},
+		{"custom IDs", &utls.TrustAnchorsExtension{TrustAnchorIDs: [][]byte{{1, 2}, {3}}}},
+		{"changed byte", &utls.TrustAnchorsExtension{TrustAnchorIDs: [][]byte{{1, 2}, {4}}}},
+		{"changed order", &utls.TrustAnchorsExtension{TrustAnchorIDs: [][]byte{{3}, {1, 2}}}},
+		{"changed boundaries", &utls.TrustAnchorsExtension{TrustAnchorIDs: [][]byte{{1}, {2, 3}}}},
+		{"single ID", &utls.TrustAnchorsExtension{TrustAnchorIDs: [][]byte{{1, 2, 3}}}},
+	} {
+		settings := &http.TLSExtensions{TrustAnchors: test.ext}
+		hash := tlsExtensionsHash(settings)
+		if previous, ok := seen[hash]; ok {
+			t.Errorf("%s shares a cache hash with %s", test.name, previous)
+		}
+		seen[hash] = test.name
+		if got := tlsExtensionsHash(cloneTLSExtensions(settings)); got != hash {
+			t.Errorf("%s hash changed after taking a snapshot", test.name)
+		}
+	}
+}
+
 func TestTransportCacheEvictsLeastRecentlyUsed(t *testing.T) {
 	session := NewSession()
 	session.TransportCacheLimit = 2

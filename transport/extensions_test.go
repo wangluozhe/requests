@@ -1,11 +1,89 @@
 package transport
 
 import (
+	"io"
+	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 
 	utls "github.com/refraction-networking/utls"
 )
+
+func TestToTLSExtensionsCheckedTrustAnchors(t *testing.T) {
+	// 255 * (1 + 255) + (1 + 252) = 65533, the maximum encoded list size.
+	maxList := make([][]byte, 256)
+	for i := 0; i < 255; i++ {
+		maxList[i] = make([]byte, 255)
+	}
+	maxList[255] = make([]byte, 252)
+	oversizedList := append([][]byte(nil), maxList...)
+	oversizedList[255] = make([]byte, 253)
+
+	for _, test := range []struct {
+		name    string
+		ids     [][]byte
+		wantErr bool
+	}{
+		{"omitted", nil, false},
+		{"empty list", [][]byte{}, false},
+		{"minimum ID", [][]byte{{1}}, false},
+		{"maximum ID", [][]byte{make([]byte, 255)}, false},
+		{"maximum list", maxList, false},
+		{"empty ID", [][]byte{{}}, true},
+		{"nil ID", [][]byte{nil}, true},
+		{"oversized ID", [][]byte{make([]byte, 256)}, true},
+		{"oversized list", oversizedList, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			extensions, err := ToTLSExtensionsChecked(&Extensions{TrustAnchors: test.ids})
+			if test.wantErr {
+				if err == nil || extensions != nil {
+					t.Fatalf("invalid TrustAnchors returned extensions=%v, err=%v", extensions, err)
+				}
+				if !strings.Contains(err.Error(), "TrustAnchors") {
+					t.Fatalf("error does not identify TrustAnchors: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			ext := extensions.TrustAnchors
+			if test.ids == nil {
+				if ext != nil {
+					t.Fatal("omitted TrustAnchors should keep chttp defaults")
+				}
+				return
+			}
+			if ext == nil || !reflect.DeepEqual(ext.TrustAnchorIDs, test.ids) {
+				t.Fatalf("TrustAnchors was not fully converted: %#v", ext)
+			}
+			wire := make([]byte, ext.Len())
+			if n, err := ext.Read(wire); n != len(wire) || err != io.EOF {
+				t.Fatalf("uTLS rejected valid TrustAnchors: n=%d, err=%v", n, err)
+			}
+		})
+	}
+}
+
+func TestToTLSExtensionsCheckedTrustAnchorsOwnsData(t *testing.T) {
+	config := &Extensions{TrustAnchors: [][]byte{{1, 2}, {3, 4}}}
+	extensions, err := ToTLSExtensionsChecked(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.TrustAnchors[0][0] = 9
+	config.TrustAnchors[1] = []byte{8}
+	if !reflect.DeepEqual(extensions.TrustAnchors.TrustAnchorIDs, [][]byte{{1, 2}, {3, 4}}) {
+		t.Fatal("converted TrustAnchors shares nested data with input")
+	}
+	extensions.TrustAnchors.TrustAnchorIDs[0][1] = 7
+	extensions.TrustAnchors.TrustAnchorIDs[1] = []byte{6}
+	if !reflect.DeepEqual(config.TrustAnchors, [][]byte{{9, 2}, {8}}) {
+		t.Fatal("input changed through converted TrustAnchors")
+	}
+}
 
 func TestToTLSExtensionsCheckedRecordSizeLimit(t *testing.T) {
 	for _, limit := range []int{-1, 63, 16385} {

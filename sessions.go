@@ -230,6 +230,15 @@ func cloneTLSExtensions(settings *http.TLSExtensions) *http.TLSExtensions {
 			}
 		}
 	}
+	if ext := settings.TrustAnchors; ext != nil {
+		clone.TrustAnchors = &utls.TrustAnchorsExtension{}
+		if ext.TrustAnchorIDs != nil {
+			clone.TrustAnchors.TrustAnchorIDs = make([][]byte, len(ext.TrustAnchorIDs))
+			for i, id := range ext.TrustAnchorIDs {
+				clone.TrustAnchors.TrustAnchorIDs[i] = bytes.Clone(id)
+			}
+		}
+	}
 	return clone
 }
 
@@ -1148,6 +1157,15 @@ func tlsExtensionsHash(tlsExtensions *http.TLSExtensions) string {
 				h.writeUint64(uint64(share.Group))
 				h.writeBytes(share.Data)
 			}
+		}
+	} else {
+		h.writeByte(0)
+	}
+	if ext := tlsExtensions.TrustAnchors; ext != nil {
+		h.writeByte(1)
+		h.writeUint64(uint64(len(ext.TrustAnchorIDs)))
+		for _, id := range ext.TrustAnchorIDs {
+			h.writeBytes(id)
 		}
 	} else {
 		h.writeByte(0)

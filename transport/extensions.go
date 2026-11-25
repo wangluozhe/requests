@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -153,6 +154,11 @@ type Extensions struct {
 	//CurveP521 CurveID = 25
 	//X25519    CurveID = 29
 	KeyShareCurves []string `json:"KeyShareCurves"`
+	// TrustAnchors 配置 JA3 扩展 51764 的 ID 列表，不改变证书信任根。
+	// JSON 中每个 ID 使用 base64，例如 {"TrustAnchors":["AQI="]}。
+	// nil（省略或 null）使用 chttp 默认值，非 nil 空列表表示显式发送空列表。
+	// 每个 ID 为 1..255 字节，列表编码长度（含每项的 1 字节长度）不超过 65533。
+	TrustAnchors [][]byte `json:"TrustAnchors"`
 	//default is false, default is used grease, if not used grease the NotUsedGREASE param is true
 	NotUsedGREASE        bool   `json:"NotUsedGREASE"`
 	ClientHelloHexStream string `json:"ClientHelloHexStream"`
@@ -265,6 +271,24 @@ func ToTLSExtensionsChecked(e *Extensions) (*http.TLSExtensions, error) {
 			}
 			extensions.KeyShareCurves.KeyShares = append(extensions.KeyShareCurves.KeyShares, parsed)
 		}
+	}
+	if e.TrustAnchors != nil {
+		listLen := 0
+		for index, id := range e.TrustAnchors {
+			if len(id) == 0 || len(id) > 255 {
+				return nil, fmt.Errorf("invalid TrustAnchors[%d]: ID length %d is outside 1..255", index, len(id))
+			}
+			listLen += 1 + len(id)
+			// 扩展数据还包含 2 字节的列表长度，整体不得超过 uint16。
+			if listLen > (1<<16)-3 {
+				return nil, fmt.Errorf("invalid TrustAnchors: encoded list exceeds 65533 bytes")
+			}
+		}
+		ids := make([][]byte, len(e.TrustAnchors))
+		for index, id := range e.TrustAnchors {
+			ids[index] = bytes.Clone(id)
+		}
+		extensions.TrustAnchors = &utls.TrustAnchorsExtension{TrustAnchorIDs: ids}
 	}
 	extensions.NotUsedGREASE = e.NotUsedGREASE
 	return extensions, nil
