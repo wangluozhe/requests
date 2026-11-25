@@ -6,6 +6,7 @@ package main
 import "C"
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -533,7 +534,11 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 	}
 
 	if requestParams.Body != "" {
-		req.Body = bytes.NewReader(utils.Base64DecodeToBytes(requestParams.Body))
+		body, err := base64.StdEncoding.DecodeString(requestParams.Body)
+		if err != nil {
+			return nil, fmt.Errorf("Body Base64 解码失败: %w", err)
+		}
+		req.Body = bytes.NewReader(body)
 	}
 
 	if requestParams.Auth != nil {
