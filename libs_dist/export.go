@@ -600,7 +600,10 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 		if err != nil {
 			return nil, err
 		}
-		req.HTTP2Settings = ja3.ToHTTP2Settings(http2Settings)
+		req.HTTP2Settings, err = ja3.ToHTTP2SettingsChecked(http2Settings)
+		if err != nil {
+			return nil, fmt.Errorf("invalid HTTP2Settings: %w", err)
+		}
 	}
 
 	if requestParams.Stream {
