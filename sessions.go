@@ -541,6 +541,8 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	forceHTTP1 := *merge_setting(req.ForceHTTP1, Bool(s.ForceHTTP1)).(*bool)
 	// 请求开始时固定 TLS 和 HTTP/2 配置快照，避免缓存键与 Transport 创建读取不同状态。
 	tlsExtensions, http2Settings := snapshotTransportSettings(req.TLSExtensions, s.TLSExtensions, req.HTTP2Settings, s.HTTP2Settings)
+	// 使用完成合并及中间件处理后的 UA，缓存键和 TLS 指纹配置共享同一个值。
+	userAgent := preq.Headers.Get("User-Agent")
 
 	// --- 缓存逻辑开始 ---
 
@@ -554,8 +556,8 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	// 不使用连接复用
 	disableKeepAlives := strings.ToLower(preq.Headers.Get("Connection")) == "close"
 
-	cacheKey := fmt.Sprintf("proxies=%s&verify=%t&cert=%s&ja3=%s&randomJA3=%t&forceHTTP1=%t&tlsExtensions=%s&http2Settings=%s&DisableKeepAlives=%t",
-		proxies, verify, certKey, ja3String, randomJA3, forceHTTP1, tlsExtensionsHash(tlsExtensions), http2SettingsHash(http2Settings), disableKeepAlives,
+	cacheKey := fmt.Sprintf("proxies=%s&verify=%t&cert=%s&ja3=%s&randomJA3=%t&forceHTTP1=%t&tlsExtensions=%s&http2Settings=%s&DisableKeepAlives=%t&userAgent=%q",
+		proxies, verify, certKey, ja3String, randomJA3, forceHTTP1, tlsExtensionsHash(tlsExtensions), http2SettingsHash(http2Settings), disableKeepAlives, userAgent,
 	)
 
 	transport, err := func() (*http.Transport, error) {
@@ -618,7 +620,7 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 
 		// 在缓存发布前统一配置，首次 HTTP 请求及其 HTTPS 重定向也必须使用同一套配置。
 		tr.JA3 = ja3String
-		tr.UserAgent = s.Headers.Get("User-Agent")
+		tr.UserAgent = userAgent
 		tr.RandomJA3 = randomJA3
 		tr.ForceHTTP1 = forceHTTP1
 		tr.TLSExtensions = tlsExtensions
