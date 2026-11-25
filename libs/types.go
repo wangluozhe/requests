@@ -3,33 +3,38 @@ package libs
 import (
 	"encoding/json"
 	"strings"
+
+	utls "github.com/refraction-networking/utls"
 )
 
 type RequestParams struct {
-	Id                 string                 `json:"Id"`
-	Method             string                 `json:"Method"`
-	Url                string                 `json:"Url"`
-	Params             map[string]string      `json:"Params"`
-	Headers            map[string]string      `json:"Headers"`
-	HeadersOrder       []string               `json:"HeadersOrder"`
-	UnChangedHeaderKey []string               `json:"UnChangedHeaderKey"`
-	Cookies            map[string]string      `json:"Cookies"`
-	Data               map[string]string      `json:"Data"`
-	Json               map[string]interface{} `json:"Json"`
-	Body               string                 `json:"Body"`
-	Auth               []string               `json:"Auth"`
-	Timeout            int                    `json:"Timeout"`
-	AllowRedirects     bool                   `json:"AllowRedirects"`
-	Proxies            string                 `json:"Proxies"`
-	Verify             bool                   `json:"Verify"`
-	Cert               []string               `json:"Cert"`
-	Ja3                string                 `json:"Ja3"`
-	RandomJA3          bool                   `json:"RandomJA3"`
-	ForceHTTP1         bool                   `json:"ForceHTTP1"`
-	PseudoHeaderOrder  []string               `json:"PseudoHeaderOrder"`
-	TLSExtensions      string                 `json:"TLSExtensions"`
-	HTTP2Settings      string                 `json:"HTTP2Settings"`
-	Stream             bool                   `json:"Stream"`
+	Id                   string                 `json:"Id"`
+	Method               string                 `json:"Method"`
+	Url                  string                 `json:"Url"`
+	Params               map[string]string      `json:"Params"`
+	Headers              map[string]string      `json:"Headers"`
+	HeadersOrder         []string               `json:"HeadersOrder"`
+	UnChangedHeaderKey   []string               `json:"UnChangedHeaderKey"`
+	Cookies              map[string]string      `json:"Cookies"`
+	Data                 map[string]string      `json:"Data"`
+	Json                 map[string]interface{} `json:"Json"`
+	Body                 string                 `json:"Body"`
+	Auth                 []string               `json:"Auth"`
+	Timeout              int                    `json:"Timeout"`
+	AllowRedirects       bool                   `json:"AllowRedirects"`
+	Proxies              string                 `json:"Proxies"`
+	Verify               bool                   `json:"Verify"`
+	Cert                 []string               `json:"Cert"`
+	Ja3                  string                 `json:"Ja3"`
+	ClientHelloHexStream string                 `json:"ClientHelloHexStream"`
+	// ClientHelloID 使用 JSON 对象，例如 {"Client":"Firefox","Version":"148"}。
+	ClientHelloID     *utls.ClientHelloID `json:"ClientHelloID"`
+	RandomJA3         bool                `json:"RandomJA3"`
+	ForceHTTP1        bool                `json:"ForceHTTP1"`
+	PseudoHeaderOrder []string            `json:"PseudoHeaderOrder"`
+	TLSExtensions     string              `json:"TLSExtensions"`
+	HTTP2Settings     string              `json:"HTTP2Settings"`
+	Stream            bool                `json:"Stream"`
 
 	allowRedirectsSet bool
 	verifySet         bool

@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	url2 "net/url"
 	"os"
@@ -257,6 +258,23 @@ func cloneHTTP2Settings(settings *http.HTTP2Settings) *http.HTTP2Settings {
 	return &clone
 }
 
+// cloneClientHelloID 复制预设及随机指纹参数，缓存不持有调用方的可变指针。
+func cloneClientHelloID(id *utls.ClientHelloID) *utls.ClientHelloID {
+	if id == nil {
+		return nil
+	}
+	clone := *id
+	if id.Seed != nil {
+		seed := *id.Seed
+		clone.Seed = &seed
+	}
+	if id.Weights != nil {
+		weights := *id.Weights
+		clone.Weights = &weights
+	}
+	return &clone
+}
+
 // snapshotTransportSettings 在请求开始时复制 TLS 和 HTTP/2 配置，后续请求流程只读取快照。
 func snapshotTransportSettings(requestTLS *http.TLSExtensions, sessionTLS *http.TLSExtensions, requestHTTP2 *http.HTTP2Settings, sessionHTTP2 *http.HTTP2Settings) (*http.TLSExtensions, *http.HTTP2Settings) {
 	if requestTLS == nil {
@@ -329,17 +347,20 @@ var defaultSession = NewSession()
 
 // Session结构体
 type Session struct {
-	Params     *url.Params
-	Headers    *http.Header
-	Cookies    *cookiejar.Jar
-	Auth       []string
-	Timeout    time.Duration
-	Proxies    string
-	Verify     bool
-	Cert       []string
-	Ja3        string
-	RandomJA3  bool
-	ForceHTTP1 bool
+	Params  *url.Params
+	Headers *http.Header
+	Cookies *cookiejar.Jar
+	Auth    []string
+	Timeout time.Duration
+	Proxies string
+	Verify  bool
+	Cert    []string
+	Ja3     string
+	// ClientHelloHexStream 和 ClientHelloID 的优先级及用法见 url.Request。
+	ClientHelloHexStream string
+	ClientHelloID        *utls.ClientHelloID
+	RandomJA3            bool
+	ForceHTTP1           bool
 	// ResponseRetention 控制响应体和原始报文的保留方式。
 	ResponseRetention url.ResponseRetention
 	TLSExtensions     *http.TLSExtensions
@@ -529,18 +550,25 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	timeout := merge_setting(req.Timeout, s.Timeout).(time.Duration)
 	// 设置ja3
 	ja3String := merge_setting(req.Ja3, s.Ja3).(string)
-	if ja3String != "" {
-		ja3Parts := strings.Split(ja3String, ",")
-		if len(ja3Parts) != 5 {
-			return nil, fmt.Errorf("invalid JA3 format: expected 5 comma-separated fields")
-		}
-	}
 	// 设置随机ja3
 	randomJA3 := *merge_setting(req.RandomJA3, Bool(s.RandomJA3)).(*bool)
 	// 设置强制http1
 	forceHTTP1 := *merge_setting(req.ForceHTTP1, Bool(s.ForceHTTP1)).(*bool)
 	// 请求开始时固定 TLS 和 HTTP/2 配置快照，避免缓存键与 Transport 创建读取不同状态。
 	tlsExtensions, http2Settings := snapshotTransportSettings(req.TLSExtensions, s.TLSExtensions, req.HTTP2Settings, s.HTTP2Settings)
+	clientHelloHexStream := merge_setting(req.ClientHelloHexStream, s.ClientHelloHexStream).(string)
+	clientHelloID := req.ClientHelloID
+	if clientHelloID == nil {
+		clientHelloID = s.ClientHelloID
+	}
+	clientHelloID = cloneClientHelloID(clientHelloID)
+	// 保持 chttp 的选择顺序：旧扩展抓包 > 直接抓包 > 预设 > JA3。
+	hasClientHello := clientHelloHexStream != "" || (tlsExtensions != nil && tlsExtensions.ClientHelloHexStream != "")
+	if !hasClientHello && clientHelloID == nil && ja3String != "" {
+		if len(strings.Split(ja3String, ",")) != 5 {
+			return nil, fmt.Errorf("invalid JA3 format: expected 5 comma-separated fields")
+		}
+	}
 	// 使用完成合并及中间件处理后的 UA，缓存键和 TLS 指纹配置共享同一个值。
 	userAgent := preq.Headers.Get("User-Agent")
 
@@ -556,8 +584,9 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 	// 不使用连接复用
 	disableKeepAlives := strings.ToLower(preq.Headers.Get("Connection")) == "close"
 
-	cacheKey := fmt.Sprintf("proxies=%s&verify=%t&cert=%s&ja3=%s&randomJA3=%t&forceHTTP1=%t&tlsExtensions=%s&http2Settings=%s&DisableKeepAlives=%t&userAgent=%q",
+	cacheKey := fmt.Sprintf("proxies=%s&verify=%t&cert=%s&ja3=%s&randomJA3=%t&forceHTTP1=%t&tlsExtensions=%s&http2Settings=%s&DisableKeepAlives=%t&userAgent=%q&clientHello=%s",
 		proxies, verify, certKey, ja3String, randomJA3, forceHTTP1, tlsExtensionsHash(tlsExtensions), http2SettingsHash(http2Settings), disableKeepAlives, userAgent,
+		clientHelloSettingsHash(clientHelloHexStream, clientHelloID),
 	)
 
 	transport, err := func() (*http.Transport, error) {
@@ -624,10 +653,11 @@ func (s *Session) Send(preq *models.PrepareRequest, req *url.Request) (*models.R
 		tr.RandomJA3 = randomJA3
 		tr.ForceHTTP1 = forceHTTP1
 		tr.TLSExtensions = tlsExtensions
+		tr.ClientHelloHexStream = clientHelloHexStream
+		tr.ClientHelloID = clientHelloID
 
 		// 显式指纹或 HTTP/2 配置需要准备 HTTP/2；无配置时保留基础 Transport 的协议策略。
-		hasClientHello := tlsExtensions != nil && tlsExtensions.ClientHelloHexStream != ""
-		needsHTTP2 := ja3String != "" || hasClientHello || http2Settings != nil || tr.H2Transport != nil
+		needsHTTP2 := ja3String != "" || hasClientHello || clientHelloID != nil || http2Settings != nil || tr.H2Transport != nil
 		if !forceHTTP1 && needsHTTP2 {
 			h2, err := http.HTTP2ConfigureTransports(tr)
 			if err != nil {
@@ -1078,6 +1108,55 @@ func (h *settingsHasher) writeUint8s(values []uint8) {
 	for _, value := range values {
 		h.writeUint64(uint64(value))
 	}
+}
+
+// clientHelloSettingsHash 按值区分抓包、预设、随机种子和权重，不依赖指针地址或 JSON。
+func clientHelloSettingsHash(stream string, id *utls.ClientHelloID) string {
+	if stream == "" && id == nil {
+		return ""
+	}
+	h := newSettingsHasher()
+	h.writeString(stream)
+	if id == nil {
+		h.writeByte(0)
+		return h.result()
+	}
+	h.writeByte(1)
+	h.writeString(id.Client)
+	h.writeString(id.Version)
+	if id.Seed == nil {
+		h.writeByte(0)
+	} else {
+		h.writeByte(1)
+		h.writeBytes(id.Seed[:])
+	}
+	if w := id.Weights; w != nil {
+		h.writeByte(1)
+		for _, value := range [...]float64{
+			w.Extensions_Append_ALPN,
+			w.TLSVersMax_Set_VersionTLS13,
+			w.CipherSuites_Remove_RandomCiphers,
+			w.SigAndHashAlgos_Append_ECDSAWithSHA1,
+			w.SigAndHashAlgos_Append_ECDSAWithP521AndSHA512,
+			w.SigAndHashAlgos_Append_PSSWithSHA256,
+			w.SigAndHashAlgos_Append_PSSWithSHA384_PSSWithSHA512,
+			w.CurveIDs_Append_X25519,
+			w.CurveIDs_Append_CurveP521,
+			w.Extensions_Append_Padding,
+			w.Extensions_Append_Status,
+			w.Extensions_Append_SCT,
+			w.Extensions_Append_Reneg,
+			w.Extensions_Append_EMS,
+			w.FirstKeyShare_Set_CurveP256,
+			w.KeyShare_Append_RandomGroups,
+			w.Extensions_Append_ALPS,
+		} {
+			h.writeUint64(math.Float64bits(value))
+		}
+	} else {
+		h.writeByte(0)
+	}
+	return h.result()
 }
 
 func tlsExtensionsHash(tlsExtensions *http.TLSExtensions) string {

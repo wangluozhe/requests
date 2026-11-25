@@ -564,6 +564,8 @@ func buildRequest(requestParams libs.RequestParams) (*url.Request, error) {
 	if requestParams.Ja3 != "" {
 		req.Ja3 = requestParams.Ja3
 	}
+	req.ClientHelloHexStream = requestParams.ClientHelloHexStream
+	req.ClientHelloID = requestParams.ClientHelloID
 
 	if requestParams.RandomJA3Set() {
 		req.RandomJA3 = url.Bool(requestParams.RandomJA3)

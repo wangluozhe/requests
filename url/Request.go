@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	utls "github.com/refraction-networking/utls"
 	"github.com/wangluozhe/chttp"
 	"github.com/wangluozhe/chttp/cookiejar"
 )
@@ -124,10 +125,16 @@ type Request struct {
 	Cert           []string
 	Stream         bool
 	Ja3            string
-	RandomJA3      *bool // nil 表示使用 Session 默认值，使用 url.Bool(true/false) 显式设置
-	ForceHTTP1     *bool // nil 表示使用 Session 默认值，使用 url.Bool(true/false) 显式设置
-	TLSExtensions  *http.TLSExtensions
-	HTTP2Settings  *http.HTTP2Settings
+	// ClientHelloHexStream 为 TLS ClientHello 记录的十六进制字符串；空值继承 Session。
+	// 合并后优先级：TLSExtensions 中的旧抓包字段 > 本字段 > ClientHelloID > Ja3。
+	ClientHelloHexStream string
+	// ClientHelloID 选择 uTLS 预设，nil 继承 Session，例如 &utls.HelloFirefox_148。
+	// 请求发送时深拷贝 Seed 和 Weights；复制期间调用方不得并发修改配置。
+	ClientHelloID *utls.ClientHelloID
+	RandomJA3     *bool // nil 表示使用 Session 默认值，使用 url.Bool(true/false) 显式设置
+	ForceHTTP1    *bool // nil 表示使用 Session 默认值，使用 url.Bool(true/false) 显式设置
+	TLSExtensions *http.TLSExtensions
+	HTTP2Settings *http.HTTP2Settings
 	// ResponseRetention 控制响应体和原始报文的保留方式。
 	ResponseRetention ResponseRetention
 
