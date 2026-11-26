@@ -21,6 +21,9 @@ var supportedSignatureAlgorithmsExtensions = map[string]utls.SignatureScheme{
 	"ECDSAWithP384AndSHA384":              utls.ECDSAWithP384AndSHA384,
 	"ECDSAWithP521AndSHA512":              utls.ECDSAWithP521AndSHA512,
 	"Ed25519":                             utls.Ed25519,
+	"MLDSA44":                             utls.MLDSA44,
+	"MLDSA65":                             utls.MLDSA65,
+	"MLDSA87":                             utls.MLDSA87,
 	"PKCS1WithSHA1":                       utls.PKCS1WithSHA1,
 	"ECDSAWithSHA1":                       utls.ECDSAWithSHA1,
 	"rsa_pkcs1_sha1":                      utls.SignatureScheme(0x0201),
@@ -86,6 +89,9 @@ var keyShareCurvesExtensions = map[string]utls.KeyShare{
 	"P521":   utls.KeyShare{Group: utls.CurveP521},
 	"X25519": utls.KeyShare{Group: utls.X25519},
 	"4588":   utls.KeyShare{Group: utls.X25519MLKEM768},
+	"4587":   utls.KeyShare{Group: utls.SecP256r1MLKEM768},
+	"4589":   utls.KeyShare{Group: utls.SecP384r1MLKEM1024},
+	"514":    utls.KeyShare{Group: utls.MLKEM1024},
 	"25497":  utls.KeyShare{Group: utls.CurveID(0x6399)},
 	"65072":  utls.KeyShare{Group: utls.CurveID(0xfe30)},
 	"65073":  utls.KeyShare{Group: utls.CurveID(0xfe31)},
@@ -122,6 +128,9 @@ type Extensions struct {
 	//ECDSAWithP384AndSHA384 SignatureScheme = 0x0503
 	//ECDSAWithP521AndSHA512 SignatureScheme = 0x0603
 	//Ed25519 SignatureScheme = 0x0807
+	//MLDSA44 SignatureScheme = 0x0904
+	//MLDSA65 SignatureScheme = 0x0905
+	//MLDSA87 SignatureScheme = 0x0906
 	//PKCS1WithSHA1 SignatureScheme = 0x0201
 	//ECDSAWithSHA1 SignatureScheme = 0x0203
 	DelegatedCredentials []string `json:"DelegatedCredentials"`
@@ -153,6 +162,10 @@ type Extensions struct {
 	//CurveP384 CurveID = 24
 	//CurveP521 CurveID = 25
 	//X25519    CurveID = 29
+	//X25519MLKEM768     CurveID = 4588
+	//SecP256r1MLKEM768  CurveID = 4587
+	//SecP384r1MLKEM1024 CurveID = 4589
+	//MLKEM1024          CurveID = 514
 	KeyShareCurves []string `json:"KeyShareCurves"`
 	// TrustAnchors 配置 JA3 扩展 51764 的 ID 列表，不改变证书信任根。
 	// JSON 中每个 ID 使用 base64，例如 {"TrustAnchors":["AQI="]}。
