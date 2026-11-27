@@ -112,9 +112,10 @@ jobs:
       - name: Download build outputs
         uses: actions/download-artifact@v4
         with:
+          pattern: requests-*
           path: dist
 
-      - name: Package platform assets
+      - name: Prepare release assets
         shell: bash
         run: |
           set -euo pipefail
@@ -125,15 +126,33 @@ jobs:
           for directory in dist/requests-*; do
             [[ -d "${directory}" ]] || continue
             platform="${directory##*/}"
-            tar -C "${directory}" -czf "release/${platform}.tar.gz" .
+            platform="${platform#requests-}"
+
+            for asset in "${directory}"/*.{dll,so,dylib,h}; do
+              filename="${asset##*/}"
+              if [[ "${filename}" == *.h ]]; then
+                # Headers can share a basename across operating systems.
+                filename="${filename%.h}-${platform%%-*}.h"
+              fi
+              test -s "${asset}"
+              test ! -e "release/${filename}"
+              cp "${asset}" "release/${filename}"
+            done
           done
 
-          assets=(release/*.tar.gz)
-          test "${#assets[@]}" -eq 5
+          libraries=(release/*.{dll,so,dylib})
+          headers=(release/*.h)
+          test "${#libraries[@]}" -eq 5
+          test "${#headers[@]}" -eq 5
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
-          files: release/*.tar.gz
+          fail_on_unmatched_files: true
+          files: |
+            release/*.dll
+            release/*.so
+            release/*.dylib
+            release/*.h
