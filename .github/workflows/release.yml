@@ -1,0 +1,139 @@
+name: Build shared libraries
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-shared-libs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            runner: ubuntu-22.04
+            goos: linux
+            goarch: amd64
+            filename: requests-go-amd64.so
+            header: requests-go-amd64.h
+          - name: linux-arm64
+            runner: ubuntu-22.04
+            goos: linux
+            goarch: arm64
+            filename: requests-go-arm64.so
+            header: requests-go-arm64.h
+          - name: darwin-amd64
+            runner: macos-15-intel
+            goos: darwin
+            goarch: amd64
+            filename: requests-go-x86.dylib
+            header: requests-go-x86.h
+          - name: darwin-arm64
+            runner: macos-15
+            goos: darwin
+            goarch: arm64
+            filename: requests-go-arm64.dylib
+            header: requests-go-arm64.h
+          - name: windows-amd64
+            runner: windows-2022
+            goos: windows
+            goarch: amd64
+            filename: requests-go-win64.dll
+            header: requests-go-win64.h
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Linux ARM64 compiler
+        if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build shared library
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "1"
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist/${{ matrix.name }}
+
+          if [[ "${GOOS}/${GOARCH}" == "linux/arm64" ]]; then
+            export CC=aarch64-linux-gnu-gcc
+          elif [[ "${GOOS}" == "darwin" ]]; then
+            export CC=clang
+          fi
+
+          go build \
+            -trimpath \
+            -buildmode=c-shared \
+            -o "dist/${{ matrix.name }}/${{ matrix.filename }}" \
+            ./libs_dist
+
+          test -s "dist/${{ matrix.name }}/${{ matrix.filename }}"
+          test -s "dist/${{ matrix.name }}/${{ matrix.header }}"
+
+      - name: Upload shared library
+        uses: actions/upload-artifact@v4
+        with:
+          name: requests-${{ matrix.name }}
+          path: dist/${{ matrix.name }}
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish release assets
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download build outputs
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Package platform assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p release
+          shopt -s nullglob
+
+          for directory in dist/requests-*; do
+            [[ -d "${directory}" ]] || continue
+            platform="${directory##*/}"
+            tar -C "${directory}" -czf "release/${platform}.tar.gz" .
+          done
+
+          assets=(release/*.tar.gz)
+          test "${#assets[@]}" -eq 5
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: release/*.tar.gz
